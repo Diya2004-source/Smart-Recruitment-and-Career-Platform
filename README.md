@@ -2,23 +2,23 @@
 
 A full-stack job portal specifically designed for students, featuring **AI-powered resume matching** and **automated skill extraction**.
 
-## 🛠 Tech Stack
+# Tech Stack
 - **Backend:** Django, Django REST Framework (DRF)
 - **Database:** PostgreSQL / SQLite
 - **Auth:** JWT (SimpleJWT)
 - **Frontend:** Flutter (Mobile)
 - **AI Engine:** (Mention your AI tool here, e.g., PyPDF2, OpenAI, or Spacy)
 
-## 📡 API Reference
+# API Reference
 The backend is built with a RESTful architecture. Major endpoints include:
 
-### Authentication
+# Authentication
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | POST | `/api/token/` | Obtain Access & Refresh tokens |
 | POST | `/api/accounts/users/` | Register as CANDIDATE or RECRUITER |
 
-### Jobs & AI Matching
+#Jobs & AI Matching
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | GET | `/api/jobs/listings/` | List all available job posts |
@@ -26,17 +26,22 @@ The backend is built with a RESTful architecture. Major endpoints include:
 
 ## Getting Started
 
-### Prerequisites
+# Prerequisites
 - Python 3.x
 - Flutter SDK
 
-### Backend Setup
+# Backend Setup
 1. Clone the repo: `git clone <your-url>`
 2. Install requirements: `pip install -r requirements.txt`
 3. Run migrations: `python manage.py migrate`
 4. Start server: `python manage.py runserver`
+5.  Create a virtual environment: `python -m venv venv`
+6. Activate it: `source venv/bin/activate` (Mac/Linux) or `venv\Scripts\activate` (Windows)
+7. Install dependencies: `pip install -r requirements.txt`
 
 ### Frontend Setup
 1. Navigate to frontend folder.
 2. Run `flutter pub get`.
 3. Start emulator and run `flutter run`.
+
+
