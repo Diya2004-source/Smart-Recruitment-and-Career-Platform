@@ -126,8 +126,8 @@ class loginState extends State<login> {
                           child: ElevatedButton(
                             onPressed: _isLoading ? null : _handleLogin,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: brandOrange,
+                              backgroundColor: brandOrange,
+                              foregroundColor: Colors.white,
                             ),
                             child: _isLoading
                                 ? const CircularProgressIndicator()
