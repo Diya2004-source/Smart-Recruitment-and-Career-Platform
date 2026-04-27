@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import '../services/auth_services.dart';
 
-class Registration extends StatefulWidget {
-  const Registration({super.key});
+class registration extends StatefulWidget {
+  const registration({super.key});
 
   @override
-  State<Registration> createState() => _RegistrationState();
+  State<registration> createState() => _registrationState();
 }
 
-class _RegistrationState extends State<Registration> {
+class _registrationState extends State<registration> {
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _userController = TextEditingController();
@@ -16,7 +16,7 @@ class _RegistrationState extends State<Registration> {
   final TextEditingController _passController = TextEditingController();
   final TextEditingController _confirmPassController = TextEditingController();
 
-  String _selectedRole = "CANDIDATE"; // ✅ NOW CHANGEABLE
+  String _selectedRole = "CANDIDATE"; //  NOW CHANGEABLE
   bool _isLoading = false;
 
   final Color brandOrange = const Color(0xFFFF8C00);
@@ -40,7 +40,7 @@ class _RegistrationState extends State<Registration> {
       username: _userController.text.trim(),
       email: _emailController.text.trim(),
       password: _passController.text.trim(),
-      role: _selectedRole, // ✅ PASS ROLE
+      role: _selectedRole, //  PASS ROLE
     );
 
     if (!mounted) return;
@@ -57,7 +57,7 @@ class _RegistrationState extends State<Registration> {
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
-                Navigator.pushReplacementNamed(context, '/Login');
+                Navigator.pushReplacementNamed(context, '/login');
               },
               child: const Text("OK"),
             ),
@@ -137,7 +137,7 @@ class _RegistrationState extends State<Registration> {
 
                         const SizedBox(height: 15),
 
-                        // 🔥 ROLE DROPDOWN
+                        //  ROLE DROPDOWN
                         DropdownButtonFormField<String>(
                           value: _selectedRole,
                           decoration: InputDecoration(
@@ -190,9 +190,9 @@ class _RegistrationState extends State<Registration> {
 
                   TextButton(
                     onPressed: () =>
-                        Navigator.pushReplacementNamed(context, '/Login'),
+                        Navigator.pushReplacementNamed(context, '/login'),
                     child: const Text(
-                      "Already have an account? Login",
+                      "Already have an account? login",
                       style: TextStyle(color: Colors.white),
                     ),
                   ),

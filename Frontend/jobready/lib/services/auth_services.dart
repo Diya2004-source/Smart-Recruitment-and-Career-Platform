@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AuthService {
-  // 🔥 FIXED BASE URL (added /accounts/)
   final String baseUrl = "http://10.0.2.2:8000/api/accounts";
 
   // ================= REGISTER =================
@@ -12,7 +11,7 @@ class AuthService {
     required String password,
     required String role,
   }) async {
-    final url = Uri.parse('$baseUrl/users/'); // ✅ FIXED
+    final url = Uri.parse('$baseUrl/users/');
 
     try {
       final response = await http.post(
@@ -31,7 +30,7 @@ class AuthService {
       if (response.statusCode == 201 || response.statusCode == 200) {
         return {
           "success": true,
-          "message": data["message"] ?? "Registration successful",
+          "message": "Registration successful",
         };
       } else {
         return {
@@ -40,9 +39,10 @@ class AuthService {
         };
       }
     } catch (e) {
+      print("REGISTER ERROR: $e");
       return {
         "success": false,
-        "message": "Server not reachable. Please check your backend.",
+        "message": "Server not reachable. Please check backend.",
       };
     }
   }
@@ -52,7 +52,7 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    final url = Uri.parse('$baseUrl/login/'); // ✅ FIXED
+    final url = Uri.parse('$baseUrl/login/');
 
     try {
       final response = await http.post(
@@ -64,24 +64,31 @@ class AuthService {
         }),
       );
 
+      print("STATUS: ${response.statusCode}");
+      print("BODY: ${response.body}");
+
       final data = _decodeResponse(response);
 
+      // ✅ SUCCESS
       if (response.statusCode == 200) {
         return {
           "success": true,
-          "token": data["token"],
+          "access": data["access"],   // 🔥 FIXED
+          "refresh": data["refresh"], // 🔥 ADDED
           "user": data["user"],
         };
-      } else {
-        return {
-          "success": false,
-          "message": _formatError(data),
-        };
       }
-    } catch (e) {
+
+      // ❌ ERROR
       return {
         "success": false,
-        "message": "Server not reachable. Try again later.",
+        "message": _formatError(data),
+      };
+    } catch (e) {
+      print("LOGIN ERROR: $e");
+      return {
+        "success": false,
+        "message": "Server not reachable. Try again.",
       };
     }
   }

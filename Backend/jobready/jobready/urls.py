@@ -21,7 +21,7 @@ urlpatterns = [
     path('api/jobs/', include('jobs.urls')),
     path('api/ai/', include('ai_engine.urls')), 
 
-    # JWT Login Endpoints
+    # JWT login Endpoints
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

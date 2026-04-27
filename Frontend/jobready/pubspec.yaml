@@ -11,7 +11,10 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  http: ^1.2.0  # Updated to a modern, compatible version
+  http: ^1.2.0  
+  path_provider: ^2.1.5
+  open_file: ^3.5.11
+  fl_chart: ^1.2.0
 
 dev_dependencies:
   flutter_test:

@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import '../services/auth_services.dart';
-import '../screens/screen_selection.dart';
-import 'registration_screen.dart';
 
-class Login extends StatefulWidget {
-  const Login({super.key});
+class login extends StatefulWidget {
+  const login({super.key});
 
   @override
-  State<Login> createState() => _LoginState();
+  State<login> createState() => loginState();
 }
 
-class _LoginState extends State<Login> {
+class loginState extends State<login> {
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _emailController = TextEditingController();
@@ -26,47 +24,47 @@ class _LoginState extends State<Login> {
     super.dispose();
   }
 
-  // ================= LOGIN FUNCTION =================
-  Future<bool> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return false;
+  // ================= LOGIN =================
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
-      var result = await AuthService().loginUser(
+      final result = await AuthService().loginUser(
         email: _emailController.text.trim(),
         password: _passController.text.trim(),
       );
 
-      if (!mounted) return false;
-
       setState(() => _isLoading = false);
 
-      if (result["success"]) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Welcome to HireHub")),
+      if (result["access"] == null) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text("Login failed")),
+  );
+  return;
+}
+
+      final token = result["access"];
+      final role = result["user"]?["role"];
+
+      if (role == "admin") {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/admindashboard',
+          (_) => false,
+          arguments: token,
         );
-        return true;
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result["message"] ?? "Invalid credentials"),
-          ),
-        );
-        return false;
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/selectionscreen', (_) => false);
       }
     } catch (e) {
-      if (!mounted) return false;
-
       setState(() => _isLoading = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Server unreachable. Please try again."),
-        ),
-      );
-
-      return false;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Login failed: $e")));
     }
   }
 
@@ -78,24 +76,20 @@ class _LoginState extends State<Login> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               children: [
-                const SizedBox(height: 20),
+                const SizedBox(height: 40),
 
                 Image.asset(
                   'assets/images/Logo.png',
-                  width: 180,
-                  errorBuilder: (c, e, s) => const Icon(
-                    Icons.lock_open,
-                    size: 80,
-                    color: Colors.white,
-                  ),
+                  width: 140,
+                  errorBuilder: (_, __, _) =>
+                      const Icon(Icons.lock, size: 80, color: Colors.white),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 30),
 
-                // ================= FORM =================
                 Form(
                   key: _formKey,
                   child: Container(
@@ -110,78 +104,36 @@ class _LoginState extends State<Login> {
                           "Email",
                           Icons.email,
                           _emailController,
-                          validator: (val) {
-                            if (val == null || val.isEmpty) {
-                              return "Email required";
-                            }
-                            if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
-                                .hasMatch(val)) {
-                              return "Enter a valid email";
-                            }
-                            return null;
-                          },
+                          validator: (val) => val == null || val.isEmpty
+                              ? "Email required"
+                              : null,
                         ),
-
                         const SizedBox(height: 15),
-
                         _buildTextField(
                           "Password",
                           Icons.lock,
                           _passController,
                           isPass: true,
-                          validator: (val) {
-                            if (val == null || val.isEmpty) {
-                              return "Password required";
-                            }
-                            if (val.length < 6) {
-                              return "Minimum 6 characters required";
-                            }
-                            return null;
-                          },
+                          validator: (val) => val == null || val.isEmpty
+                              ? "Password required"
+                              : null,
                         ),
-
                         const SizedBox(height: 25),
 
-                        // ================= BUTTON =================
                         SizedBox(
                           width: double.infinity,
                           height: 50,
                           child: ElevatedButton(
-                            onPressed: _isLoading
-                                ? null
-                                : () async {
-                                    bool success = await _handleLogin();
-
-                                    if (success && mounted) {
-                                      Navigator.pushReplacement(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const SelectionScreen(),
-                                        ),
-                                      );
-                                    }
-                                  },
+                            onPressed: _isLoading ? null : _handleLogin,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: brandOrange,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              backgroundColor: Colors.white,
+                              foregroundColor: brandOrange,
                             ),
                             child: _isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
+                                ? const CircularProgressIndicator()
                                 : const Text(
-                                    "LOGIN",
+                                    "Login",
                                     style: TextStyle(
-                                      fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -194,7 +146,6 @@ class _LoginState extends State<Login> {
 
                 const SizedBox(height: 15),
 
-                // ================= REGISTER LINK =================
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -203,15 +154,8 @@ class _LoginState extends State<Login> {
                       style: TextStyle(color: Colors.white),
                     ),
                     GestureDetector(
-                      onTap: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const Registration(),
-                          ),
-                        );
-                      },
+                      onTap: () =>
+                          Navigator.pushNamed(context, '/registration'),
                       child: const Text(
                         "Register",
                         style: TextStyle(
@@ -251,7 +195,6 @@ class _LoginState extends State<Login> {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-        errorStyle: const TextStyle(color: Colors.red),
       ),
     );
   }
