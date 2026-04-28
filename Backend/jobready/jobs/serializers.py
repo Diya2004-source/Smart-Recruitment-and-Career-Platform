@@ -2,12 +2,23 @@ from rest_framework import serializers
 from .models import Job , Application
 
 class JobSerializer(serializers.ModelSerializer):
-    # This shows the recruiter name instead of just the ID
-    recruiter_name = serializers.ReadOnlyField(source='recruiter.recruiterprofile.company_name')
+    recruiter_name = serializers.ReadOnlyField(
+        source='recruiter.recruiterprofile.company_name'
+    )
 
     class Meta:
         model = Job
-        fields = ['id' , 'recruiter' , 'recruier_name' , 'title' , 'description' , 'required_skills' , 'location' , 'is_active' , 'created_at']
+        fields = [
+            'id',
+            'recruiter',
+            'recruiter_name',  
+            'title',
+            'description',
+            'required_skills',
+            'location',
+            'is_active',
+            'created_at'
+        ]
 
 class ApplicationSerializer(serializers.ModelSerializer):
     # This shows the candidate username instead of just the ID

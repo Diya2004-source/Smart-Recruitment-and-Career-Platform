@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_services.dart';
+import '../services/session.dart';
 
 class login extends StatefulWidget {
   const login({super.key});
@@ -36,35 +37,57 @@ class loginState extends State<login> {
         password: _passController.text.trim(),
       );
 
+      if (!mounted) return;
+
       setState(() => _isLoading = false);
 
+      // ================= VALIDATION =================
       if (result["access"] == null) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text("Login failed")),
-  );
-  return;
-}
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Invalid email or password")),
+        );
+        return;
+      }
 
       final token = result["access"];
       final role = result["user"]?["role"];
 
+      // ================= STORE SESSION =================
+      Session.token = token;
+      Session.role = role;
+
+      // ================= NAVIGATION =================
       if (role == "admin") {
-        Navigator.of(context).pushNamedAndRemoveUntil(
+        Navigator.pushNamedAndRemoveUntil(
+          context,
           '/admindashboard',
           (_) => false,
           arguments: token,
         );
-      } else {
-        Navigator.of(
+      } 
+      else if (role == "RECRUITER" || role == "employer") {
+        Navigator.pushNamedAndRemoveUntil(
           context,
-        ).pushNamedAndRemoveUntil('/selectionscreen', (_) => false);
+          '/employerdashboard',
+          (_) => false,
+        );
+      } 
+      else {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/jobseekerdashboard',
+          (_) => false,
+        );
       }
+
     } catch (e) {
+      if (!mounted) return;
+
       setState(() => _isLoading = false);
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Login failed: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Login failed: ${e.toString()}")),
+      );
     }
   }
 
@@ -84,12 +107,13 @@ class loginState extends State<login> {
                 Image.asset(
                   'assets/images/Logo.png',
                   width: 140,
-                  errorBuilder: (_, __, _) =>
+                  errorBuilder: (_, __, ___) =>
                       const Icon(Icons.lock, size: 80, color: Colors.white),
                 ),
 
                 const SizedBox(height: 30),
 
+                // ================= FORM =================
                 Form(
                   key: _formKey,
                   child: Container(
@@ -104,20 +128,21 @@ class loginState extends State<login> {
                           "Email",
                           Icons.email,
                           _emailController,
-                          validator: (val) => val == null || val.isEmpty
-                              ? "Email required"
-                              : null,
+                          validator: (val) =>
+                              val == null || val.isEmpty ? "Email required" : null,
                         ),
+
                         const SizedBox(height: 15),
+
                         _buildTextField(
                           "Password",
                           Icons.lock,
                           _passController,
                           isPass: true,
-                          validator: (val) => val == null || val.isEmpty
-                              ? "Password required"
-                              : null,
+                          validator: (val) =>
+                              val == null || val.isEmpty ? "Password required" : null,
                         ),
+
                         const SizedBox(height: 25),
 
                         SizedBox(
@@ -128,13 +153,17 @@ class loginState extends State<login> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: brandOrange,
                               foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                             child: _isLoading
-                                ? const CircularProgressIndicator()
+                                ? const CircularProgressIndicator(color: Colors.white)
                                 : const Text(
                                     "Login",
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
+                                      fontSize: 16,
                                     ),
                                   ),
                           ),
@@ -146,6 +175,7 @@ class loginState extends State<login> {
 
                 const SizedBox(height: 15),
 
+                // ================= REGISTER =================
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

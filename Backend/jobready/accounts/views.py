@@ -10,6 +10,8 @@ from django.utils.decorators import method_decorator
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.http import HttpResponse
+from jobs.models import  Job   # IMPORTANT: add Job model
+
 
 from .models import User, CandidateProfile, RecruiterProfile
 from .serializers import (
@@ -124,20 +126,26 @@ def login_view(request):
 # ================= ADMIN DASHBOARD API =================
 class AdminDashboardView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [permissions.IsAuthenticated, IsAdminUserRole]
+    permission_classes = [IsAuthenticated, IsAdminUserRole]
 
     def get(self, request):
-        total_users = User.objects.count()  
-        candidates = User.objects.filter(role='candidate').count()
-        employers = User.objects.filter(role='employer').count()
+
+        total_users = User.objects.count()
+        candidates = User.objects.filter(role='CANDIDATE').count()
+        recruiters = User.objects.filter(role='RECRUITER').count()
+
+        total_jobs = Job.objects.count()
+        active_jobs = Job.objects.filter(is_active=True).count()
 
         return Response({
             "total_users": total_users,
             "candidates": candidates,
-            "employers": employers,
-            "system_health": "99.8%"
-        })
+            "recruiters": recruiters,
 
+            "total_jobs": total_jobs,
+            "active_jobs": active_jobs
+        })
+    
 # ======================== PDF GENERATE ====================
 class GenerateReportView(APIView):
     permission_classes = [IsAuthenticated]
