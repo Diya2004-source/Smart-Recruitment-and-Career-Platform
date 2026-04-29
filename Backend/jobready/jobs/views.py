@@ -44,26 +44,20 @@ class JobViewSet(viewsets.ModelViewSet):
     serializer_class = JobSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    #  FIX: Proper role-based job visibility
     def get_queryset(self):
         user = self.request.user
 
-        # Recruiter sees only their jobs
         if user.role == 'RECRUITER':
             return Job.objects.filter(recruiter=user).order_by('-created_at')
 
-        # Admin sees all jobs
         if user.role == 'ADMIN':
             return Job.objects.all().order_by('-created_at')
 
-        # Candidates see only active jobs
         return Job.objects.filter(is_active=True).order_by('-created_at')
 
-    #  FIX: Automatically assign recruiter
     def perform_create(self, serializer):
+        #  HARD FIX: ensure recruiter is always set correctly
         serializer.save(recruiter=self.request.user)
-
-
 # ================= APPLICATION VIEWSET =================
 class ApplicationViewSet(viewsets.ModelViewSet):
     serializer_class = ApplicationSerializer
@@ -72,13 +66,19 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     #  FIX: Proper filtering
     def get_queryset(self):
         user = self.request.user
+        queryset = Application.objects.all()
 
-        # Recruiter sees applications for their jobs
+    #  IMPORTANT: filter by job id from Flutter
+        job_id = self.request.query_params.get('job')
+        if job_id:
+            queryset = queryset.filter(job_id=job_id)
+
+    # Recruiter → only their jobs
         if user.role == 'RECRUITER':
-            return Application.objects.filter(job__recruiter=user)
+            return queryset.filter(job__recruiter=user)
 
-        # Candidate sees only their applications
-        return Application.objects.filter(candidate=user)
+    # Candidate → only their applications
+        return queryset.filter(candidate=user)
 
     # FIX: AI matching logic (safe version)
     def perform_create(self, serializer):

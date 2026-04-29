@@ -3,7 +3,6 @@ import '../../services/employer_api.dart';
 import '../../services/session.dart';
 import 'add_job.dart';
 import 'jobs_list.dart';
-import 'applications_page.dart';
 
 class employerdashboard extends StatefulWidget {
   const employerdashboard({super.key});
@@ -13,63 +12,118 @@ class employerdashboard extends StatefulWidget {
 }
 
 class _employerdashboardState extends State<employerdashboard> {
-  final EmployerApi api = EmployerApi();
+  final api = EmployerApi();
 
-  List<Map<String, dynamic>> jobs = [];
-  List<Map<String, dynamic>> apps = [];
+  List jobs = [];
+  List applications = [];
   bool loading = true;
 
-  final Color brandOrange = const Color(0xFFFF8C00);
+  final Color orange = const Color(0xFFFF8C00);
 
-  // ================= INIT =================
   @override
   void initState() {
     super.initState();
-    fetchData();
+    load();
   }
 
-  // ================= FETCH DATA =================
-  Future<void> fetchData() async {
-    if (!mounted) return;
-
+  // ================= LOAD DATA =================
+  Future<void> load() async {
     setState(() => loading = true);
 
     try {
-      final jobData = await api.getJobs();
-      final appData = await api.getApplications();
+      jobs = await api.getJobs();
 
-      jobs = List<Map<String, dynamic>>.from(jobData ?? []);
-      apps = List<Map<String, dynamic>>.from(appData ?? []);
+      applications = [];
+
+      // 🔥 FIX: since API requires jobId
+      for (var job in jobs) {
+        final jobApps = await api.getApplications(job['id']);
+        applications.addAll(jobApps);
+      }
     } catch (e) {
-      debugPrint("Dashboard Error: $e");
-      jobs = [];
-      apps = [];
+      debugPrint("Load Error: $e");
     }
 
-    if (!mounted) return;
     setState(() => loading = false);
   }
 
-  // ================= ADD JOB + REFRESH =================
-  Future<void> goToAddJob() async {
-    final result = await Navigator.push(
+  // ================= ADD JOB =================
+  Future<void> openAddJob() async {
+    final res = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const AddJob()),
     );
 
-    if (result == true) {
-      fetchData(); // refresh after job added
+    if (res == true) {
+      await load();
     }
   }
 
+  // ================= SIDEBAR =================
+  Widget drawer() {
+    return Drawer(
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            color: orange,
+            child: const Text(
+              "Employer Panel",
+              style: TextStyle(color: Colors.white, fontSize: 20),
+            ),
+          ),
+
+          ListTile(
+            leading: const Icon(Icons.dashboard),
+            title: const Text("Dashboard"),
+            onTap: () => Navigator.pop(context),
+          ),
+
+          ListTile(
+            leading: const Icon(Icons.work),
+            title: const Text("Jobs"),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const JobsList()),
+              );
+            },
+          ),
+
+          ListTile(
+            leading: const Icon(Icons.people),
+            title: const Text("Applications"),
+            onTap: () {},
+          ),
+
+          const Spacer(),
+
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text("Logout"),
+            onTap: () {
+              Session.logout();
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/login',
+                (_) => false,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   // ================= STATS CARD =================
-  Widget statCard(String title, int value, IconData icon) {
+  Widget statCard(String title, int count, IconData icon) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [brandOrange, brandOrange.withOpacity(0.8)],
+            colors: [orange, orange.withOpacity(0.8)],
           ),
           borderRadius: BorderRadius.circular(16),
         ),
@@ -78,7 +132,7 @@ class _employerdashboardState extends State<employerdashboard> {
             Icon(icon, color: Colors.white),
             const SizedBox(height: 8),
             Text(
-              value.toString(),
+              "$count",
               style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -93,16 +147,12 @@ class _employerdashboardState extends State<employerdashboard> {
   }
 
   // ================= JOB CARD =================
-  Widget jobCard(Map<String, dynamic> job) {
-    final rawSkills = job["required_skills"];
+  Widget jobCard(Map job) {
+    int jobId = job['id'];
 
-    List<String> skills = [];
-
-    if (rawSkills is List) {
-      skills = rawSkills.map((e) => e.toString()).toList();
-    } else if (rawSkills != null) {
-      skills = [rawSkills.toString()];
-    }
+    int applicantCount = applications
+        .where((a) => a['job'] == jobId)
+        .length;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -114,36 +164,30 @@ class _employerdashboardState extends State<employerdashboard> {
           BoxShadow(color: Colors.black12, blurRadius: 6),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            job["title"]?.toString() ?? "No Title",
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+      child: ListTile(
+        title: Text(job['title'] ?? "No Title"),
+        subtitle: Text(job['location'] ?? "No Location"),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "$applicantCount",
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(job["location"]?.toString() ?? "No Location"),
-          const SizedBox(height: 6),
-          Text(
-            "Skills: ${skills.join(", ")}",
-            style: const TextStyle(color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ================= BUTTON STYLE =================
-  ButtonStyle primaryBtn() {
-    return ElevatedButton.styleFrom(
-      backgroundColor: brandOrange,
-      foregroundColor: Colors.white,
-      minimumSize: const Size(double.infinity, 50),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+            const Text("Applicants", style: TextStyle(fontSize: 12)),
+          ],
+        ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => JobsList(selectedJobId: jobId),
+            ),
+          );
+        },
       ),
     );
   }
@@ -151,145 +195,63 @@ class _employerdashboardState extends State<employerdashboard> {
   // ================= UI =================
   @override
   Widget build(BuildContext context) {
-    if (Session.token == null) {
-      return const Scaffold(
-        body: Center(child: Text("Login required")),
-      );
-    }
-
     return Scaffold(
+      drawer: drawer(),
+
       appBar: AppBar(
         title: const Text("Employer Dashboard"),
         backgroundColor: Colors.white,
-        iconTheme: IconThemeData(color: brandOrange),
-      ),
-
-      drawer: Drawer(
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              color: brandOrange,
-              child: const Text(
-                "Employer Panel",
-                style: TextStyle(color: Colors.white, fontSize: 20),
-              ),
-            ),
-
-            ListTile(
-              title: const Text("Dashboard"),
-              onTap: () => Navigator.pop(context),
-            ),
-
-            ListTile(
-              title: const Text("Jobs"),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const JobsList()),
-                );
-              },
-            ),
-
-            ListTile(
-              title: const Text("Applications"),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ApplicationsPage()),
-                );
-              },
-            ),
-
-            const Spacer(),
-
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text("Logout"),
-              onTap: () {
-                Session.logout();
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/login',
-                  (_) => false,
-                );
-              },
-            ),
-          ],
-        ),
+        iconTheme: IconThemeData(color: orange),
       ),
 
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: fetchData,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
+              onRefresh: load,
+              child: ListView(
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                children: [
 
-                    Row(
-                      children: [
-                        statCard("Jobs", jobs.length, Icons.work),
-                        const SizedBox(width: 10),
-                        statCard("Applications", apps.length, Icons.people),
-                      ],
+                  // ================= STATS =================
+                  Row(
+                    children: [
+                      statCard("Jobs", jobs.length, Icons.work),
+                      const SizedBox(width: 10),
+                      statCard("Applications", applications.length, Icons.people),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ================= ADD JOB =================
+                  ElevatedButton.icon(
+                    onPressed: openAddJob,
+                    icon: const Icon(Icons.add),
+                    label: const Text("Post New Job"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: orange,
+                      minimumSize: const Size(double.infinity, 50),
                     ),
+                  ),
 
-                    const SizedBox(height: 25),
+                  const SizedBox(height: 20),
 
-                    ElevatedButton.icon(
-                      style: primaryBtn(),
-                      icon: const Icon(Icons.add),
-                      label: const Text("Post New Job"),
-                      onPressed: goToAddJob,
+                  const Text(
+                    "Your Jobs",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
 
-                    const SizedBox(height: 25),
+                  const SizedBox(height: 10),
 
-                    const Text(
-                      "Recent Jobs",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    jobs.isEmpty
-                        ? const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(20),
-                              child: Text("No jobs posted yet"),
-                            ),
-                          )
-                        : ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: jobs.length > 5 ? 5 : jobs.length,
-                            itemBuilder: (c, i) => jobCard(jobs[i]),
-                          ),
-
-                    const SizedBox(height: 20),
-
-                    ElevatedButton(
-                      style: primaryBtn(),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const JobsList(),
-                          ),
-                        );
-                      },
-                      child: const Text("View All Jobs"),
-                    ),
-                  ],
-                ),
+                  jobs.isEmpty
+                      ? const Center(child: Text("No jobs posted yet"))
+                      : Column(
+                          children: jobs.map((job) => jobCard(job)).toList(),
+                        ),
+                ],
               ),
             ),
     );

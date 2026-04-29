@@ -16,16 +16,9 @@ class loginState extends State<login> {
   final TextEditingController _passController = TextEditingController();
 
   bool _isLoading = false;
+
   final Color brandOrange = const Color(0xFFFF8C00);
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passController.dispose();
-    super.dispose();
-  }
-
-  // ================= LOGIN =================
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -39,59 +32,55 @@ class loginState extends State<login> {
 
       if (!mounted) return;
 
-      setState(() => _isLoading = false);
+      final token = result["access"];
+      final user = result["user"];
 
-      // ================= VALIDATION =================
-      if (result["access"] == null) {
+      if (token == null || user == null) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Invalid email or password")),
+          const SnackBar(content: Text("Invalid credentials")),
         );
         return;
       }
 
-      final token = result["access"];
-      final role = result["user"]?["role"];
+      final role = user["role"].toString().trim().toUpperCase();
 
-      // ================= STORE SESSION =================
-      Session.token = token;
-      Session.role = role;
+      await Session.saveSession(token, role);
 
-      // ================= NAVIGATION =================
-      if (role == "admin") {
+      setState(() => _isLoading = false);
+
+      // ✅ FIXED ROLE BASED NAVIGATION
+      if (role == "ADMIN") {
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/admindashboard',
-          (_) => false,
-          arguments: token,
+          (route) => false,
         );
       } 
-      else if (role == "RECRUITER" || role == "employer") {
+      else if (role == "RECRUITER") {
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/employerdashboard',
-          (_) => false,
+          (route) => false,
         );
       } 
       else {
         Navigator.pushNamedAndRemoveUntil(
           context,
-          '/jobseekerdashboard',
-          (_) => false,
+          '/selectionscreen',
+          (route) => false,
         );
       }
 
     } catch (e) {
-      if (!mounted) return;
-
       setState(() => _isLoading = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Login failed: ${e.toString()}")),
+        SnackBar(content: Text("Login error: $e")),
       );
     }
   }
 
-  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -106,66 +95,61 @@ class loginState extends State<login> {
 
                 Image.asset(
                   'assets/images/Logo.png',
-                  width: 140,
-                  errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.lock, size: 80, color: Colors.white),
+                  width: 120,
                 ),
 
-                const SizedBox(height: 30),
+                const SizedBox(height: 20),
 
-                // ================= FORM =================
+                const Text(
+                  "Welcome Back",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 25),
+
                 Form(
                   key: _formKey,
                   child: Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(
                       children: [
-                        _buildTextField(
-                          "Email",
-                          Icons.email,
-                          _emailController,
-                          validator: (val) =>
-                              val == null || val.isEmpty ? "Email required" : null,
+                        TextFormField(
+                          controller: _emailController,
+                          decoration:
+                              const InputDecoration(labelText: "Email"),
+                          validator: (v) =>
+                              v!.isEmpty ? "Enter email" : null,
                         ),
-
-                        const SizedBox(height: 15),
-
-                        _buildTextField(
-                          "Password",
-                          Icons.lock,
-                          _passController,
-                          isPass: true,
-                          validator: (val) =>
-                              val == null || val.isEmpty ? "Password required" : null,
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: _passController,
+                          obscureText: true,
+                          decoration:
+                              const InputDecoration(labelText: "Password"),
+                          validator: (v) =>
+                              v!.isEmpty ? "Enter password" : null,
                         ),
-
-                        const SizedBox(height: 25),
+                        const SizedBox(height: 20),
 
                         SizedBox(
                           width: double.infinity,
-                          height: 50,
                           child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: brandOrange,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
                             ),
+                            onPressed: _isLoading ? null : _handleLogin,
                             child: _isLoading
-                                ? const CircularProgressIndicator(color: Colors.white)
-                                : const Text(
-                                    "Login",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white)
+                                : const Text("Login"),
                           ),
                         ),
                       ],
@@ -173,57 +157,23 @@ class loginState extends State<login> {
                   ),
                 ),
 
-                const SizedBox(height: 15),
+                const SizedBox(height: 20),
 
-                // ================= REGISTER =================
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      "Don't have an account? ",
-                      style: TextStyle(color: Colors.white),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pushNamed(context, '/registration');
+                  },
+                  child: const Text(
+                    "If you don't have account, Register",
+                    style: TextStyle(
+                      color: Colors.white,
+                      decoration: TextDecoration.underline,
                     ),
-                    GestureDetector(
-                      onTap: () =>
-                          Navigator.pushNamed(context, '/registration'),
-                      child: const Text(
-                        "Register",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  // ================= TEXT FIELD =================
-  Widget _buildTextField(
-    String hint,
-    IconData icon,
-    TextEditingController ctr, {
-    bool isPass = false,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      controller: ctr,
-      obscureText: isPass,
-      validator: validator,
-      decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: brandOrange),
-        hintText: hint,
-        filled: true,
-        fillColor: Colors.grey[100],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
         ),
       ),
     );

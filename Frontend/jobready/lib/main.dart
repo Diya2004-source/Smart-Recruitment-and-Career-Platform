@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'splash_screen.dart';
 import 'Auth/login_screen.dart';
 import 'Auth/registration_screen.dart';
 
@@ -10,7 +9,14 @@ import './screens/Employer/employer_dashboard.dart';
 import './screens/Admin/admin_dashboard.dart';
 import './screens/Admin/users_list.dart';
 
-void main() {
+import './services/session.dart';
+import './splash_screen.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Session.loadSession();
+
   runApp(const HireHub());
 }
 
@@ -23,6 +29,7 @@ class HireHub extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'HireHub',
 
+      // ✅ ALWAYS START WITH SPLASH
       home: const SplashScreen(),
 
       routes: {
@@ -30,23 +37,12 @@ class HireHub extends StatelessWidget {
         '/registration': (context) => const registration(),
         '/selectionscreen': (context) => const selectionscreen(),
         '/jobseekerdashboard': (context) => const jobseekerdashboard(),
+        '/employerdashboard': (context) => const employerdashboard(),
+        '/admindashboard': (context) => const admindashboard(),
       },
 
       onGenerateRoute: (settings) {
         switch (settings.name) {
-
-          case '/employerdashboard':
-            return MaterialPageRoute(
-              builder: (_) => const employerdashboard(),
-            );
-
-          case '/admindashboard':
-            final token = settings.arguments;
-            return MaterialPageRoute(
-              builder: (_) => admindashboard(),
-              settings: RouteSettings(arguments: token),
-            );
-
           case '/users':
             final args = settings.arguments as Map;
             return MaterialPageRoute(
@@ -56,7 +52,6 @@ class HireHub extends StatelessWidget {
               ),
             );
         }
-
         return null;
       },
     );

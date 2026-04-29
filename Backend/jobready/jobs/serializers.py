@@ -2,16 +2,14 @@ from rest_framework import serializers
 from .models import Job , Application
 
 class JobSerializer(serializers.ModelSerializer):
-    recruiter_name = serializers.ReadOnlyField(
-        source='recruiter.recruiterprofile.company_name'
-    )
+    recruiter_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Job
         fields = [
             'id',
             'recruiter',
-            'recruiter_name',  
+            'recruiter_name',
             'title',
             'description',
             'required_skills',
@@ -19,6 +17,34 @@ class JobSerializer(serializers.ModelSerializer):
             'is_active',
             'created_at'
         ]
+
+        read_only_fields = [
+            'recruiter',
+            'created_at'
+        ]
+
+    # ================= SAFE RECRUITER NAME =================
+    def get_recruiter_name(self, obj):
+        try:
+            # Try recruiter profile first
+            if hasattr(obj.recruiter, 'recruiter_profile'):
+                return obj.recruiter.recruiter_profile.company_name
+        except:
+            pass
+
+        # fallback (always safe)
+        return obj.recruiter.username if obj.recruiter else "Unknown"
+
+    # ================= FIX SKILLS INPUT =================
+    def validate_required_skills(self, value):
+        
+        if isinstance(value, str):
+            return [s.strip() for s in value.split(",") if s.strip()]
+
+        if isinstance(value, list):
+            return value
+
+        return []
 
 class ApplicationSerializer(serializers.ModelSerializer):
     # This shows the candidate username instead of just the ID

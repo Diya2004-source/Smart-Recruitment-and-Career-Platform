@@ -14,59 +14,87 @@ class _AddJobState extends State<AddJob> {
   final _formKey = GlobalKey<FormState>();
 
   final title = TextEditingController();
-  final skills = TextEditingController();
   final location = TextEditingController();
+  final skills = TextEditingController();
   final desc = TextEditingController();
 
   bool loading = false;
 
-  final orange = const Color(0xFFFF8C00);
+  final Color brandOrange = const Color(0xFFFF8C00);
 
   // ================= SUBMIT =================
-  void submit() async {
+  Future<void> submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => loading = true);
 
     try {
-      await api.createJob({
+      // ✅ Clean & validate skills
+      final skillList = skills.text
+          .split(",")
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+
+      if (skillList.isEmpty) {
+        throw "Please enter at least one skill";
+      }
+
+      final res = await api.createJob({
         "title": title.text.trim(),
         "description": desc.text.trim(),
-        "required_skills":
-            skills.text.split(",").map((e) => e.trim()).toList(),
+        "required_skills": skillList,
         "location": location.text.trim(),
         "is_active": true
       });
 
-      if (!mounted) return;
+      debugPrint("JOB CREATED: $res");
 
-      // ✅ RETURN TRUE → dashboard will refresh
-      Navigator.pop(context, true);
-
-    } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
+        const SnackBar(content: Text("Job posted successfully")),
+      );
+
+      Navigator.pop(context, true);
+
+    } catch (e) {
+      debugPrint("CREATE JOB ERROR: $e");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
       );
     }
 
-    setState(() => loading = false);
+    if (mounted) {
+      setState(() => loading = false);
+    }
   }
 
-  // ================= INPUT =================
-  Widget input(String label, TextEditingController c) {
+  // ================= INPUT FIELD =================
+  Widget input(
+    String label,
+    IconData icon,
+    TextEditingController controller, {
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
     return TextFormField(
-      controller: c,
-      validator: (v) => v == null || v.isEmpty ? "$label required" : null,
+      controller: controller,
+      maxLines: maxLines,
+      validator: validator ??
+          (v) =>
+              v == null || v.trim().isEmpty ? "$label is required" : null,
       decoration: InputDecoration(
+        prefixIcon: Icon(icon, color: brandOrange),
         labelText: label,
+        filled: true,
+        fillColor: Colors.grey[100],
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: orange),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
         ),
       ),
     );
@@ -79,9 +107,13 @@ class _AddJobState extends State<AddJob> {
       backgroundColor: Colors.grey[100],
 
       appBar: AppBar(
-        title: const Text("Post Job"),
+        elevation: 0,
         backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.orange),
+        title: const Text(
+          "Post Job",
+          style: TextStyle(color: Colors.black),
+        ),
+        iconTheme: IconThemeData(color: brandOrange),
       ),
 
       body: SingleChildScrollView(
@@ -89,81 +121,154 @@ class _AddJobState extends State<AddJob> {
 
         child: Form(
           key: _formKey,
-
           child: Column(
             children: [
 
-              // ===== HEADER CARD =====
+              // 🔥 HEADER CARD
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: orange,
-                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: [
+                      brandOrange,
+                      brandOrange.withOpacity(0.8),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Create Job",
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold)),
-                    SizedBox(height: 5),
-                    Text("Fill details to post a job",
-                        style: TextStyle(color: Colors.white70)),
+                    Text(
+                      "Create Job Post",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      "Fill all details carefully to attract candidates",
+                      style: TextStyle(color: Colors.white70),
+                    ),
                   ],
                 ),
               ),
 
               const SizedBox(height: 20),
 
-              // ===== FORM =====
-              input("Job Title", title),
-              const SizedBox(height: 12),
+              // 🔥 FORM CARD
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    )
+                  ],
+                ),
+                child: Column(
+                  children: [
 
-              input("Location", location),
-              const SizedBox(height: 12),
+                    // TITLE
+                    input(
+                      "Job Title",
+                      Icons.work,
+                      title,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return "Job title is required";
+                        }
+                        if (v.length < 3) {
+                          return "Title too short";
+                        }
+                        return null;
+                      },
+                    ),
 
-              input("Skills (comma separated)", skills),
-              const SizedBox(height: 12),
+                    const SizedBox(height: 14),
 
-              TextFormField(
-                controller: desc,
-                maxLines: 4,
-                validator: (v) =>
-                    v == null || v.isEmpty ? "Description required" : null,
-                decoration: InputDecoration(
-                  labelText: "Description",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                    // LOCATION
+                    input(
+                      "Location",
+                      Icons.location_on,
+                      location,
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // SKILLS
+                    input(
+                      "Skills (comma separated)",
+                      Icons.code,
+                      skills,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return "Enter at least one skill";
+                        }
+                        if (!v.contains(",")) {
+                          return "Use comma to separate skills";
+                        }
+                        return null;
+                      },
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // DESCRIPTION
+                    input(
+                      "Job Description",
+                      Icons.description,
+                      desc,
+                      maxLines: 4,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return "Description is required";
+                        }
+                        if (v.length < 10) {
+                          return "Description too short";
+                        }
+                        return null;
+                      },
+                    ),
+
+                    const SizedBox(height: 25),
+
+                    // BUTTON
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: loading ? null : submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: brandOrange,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: loading
+                            ? const CircularProgressIndicator(
+                                color: Colors.white)
+                            : const Text(
+                                "Post Job",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
               const SizedBox(height: 20),
-
-              // ===== BUTTON =====
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: loading ? null : submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: orange,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: loading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          "Post Job",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                ),
-              ),
             ],
           ),
         ),

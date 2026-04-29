@@ -3,50 +3,41 @@ import 'package:http/http.dart' as http;
 import 'session.dart';
 
 class EmployerApi {
-  final base = "http://10.0.2.2:8000/api";
+  final String baseUrl = "http://10.0.2.2:8000/api/jobs";
 
   Map<String, String> get headers => {
-        "Authorization": "Bearer ${Session.token}",
         "Content-Type": "application/json",
+        "Authorization": "Bearer ${Session.token}",
       };
 
+  // GET JOBS (Recruiter gets only their jobs)
   Future<List> getJobs() async {
     final res = await http.get(
-      Uri.parse("$base/jobs/listings/"),
+      Uri.parse("$baseUrl/listings/"),
       headers: headers,
     );
 
-    if (res.statusCode == 200) {
-      return jsonDecode(res.body);
-    }
-    return [];
+    return jsonDecode(res.body);
   }
 
-  Future<List> getApplications() async {
-    final res = await http.get(
-      Uri.parse("$base/jobs/applications/"),
-      headers: headers,
-    );
-
-    if (res.statusCode == 200) {
-      return jsonDecode(res.body);
-    }
-    return [];
-  }
-
-  Future<void> createJob(Map data) async {
-    await http.post(
-      Uri.parse("$base/jobs/listings/"),
+  //  CREATE JOB
+  Future createJob(Map data) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/listings/"),
       headers: headers,
       body: jsonEncode(data),
     );
+
+    return jsonDecode(res.body);
   }
 
-  Future<void> updateApplicationStatus(int id, String status) async {
-    await http.patch(
-      Uri.parse("$base/jobs/applications/$id/"),
+  //  GET APPLICATIONS BY JOB
+  Future<List> getApplications(int jobId) async {
+    final res = await http.get(
+      Uri.parse("$baseUrl/applications/?job=$jobId"),
       headers: headers,
-      body: jsonEncode({"status": status}),
     );
+
+    return jsonDecode(res.body);
   }
 }

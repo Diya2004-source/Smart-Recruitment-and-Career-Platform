@@ -1,7 +1,7 @@
 """
 URL configuration for jobready project.
 """
-
+from accounts.views import login_view
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -13,17 +13,16 @@ from rest_framework_simplejwt.views import (
 )
 
 urlpatterns = [
-    # ================= ADMIN =================
     path('admin/', admin.site.urls),
 
-    # ================= APPS =================
+    path('api/login/', login_view),
+
     path('api/accounts/', include('accounts.urls')),
     path('api/jobs/', include('jobs.urls')),
     path('api/ai/', include('ai_engine.urls')),
 
-    # ================= AUTH (JWT) =================
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/token/', TokenObtainPairView.as_view()),
+    path('api/token/refresh/', TokenRefreshView.as_view()),
 ]
 
 # ================= MEDIA (RESUME, FILES) =================
