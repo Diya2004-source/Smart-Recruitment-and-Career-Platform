@@ -167,7 +167,6 @@ class loginState extends State<login> {
                     "If you don't have account, Register",
                     style: TextStyle(
                       color: Colors.white,
-                      decoration: TextDecoration.underline,
                     ),
                   ),
                 ),

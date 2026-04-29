@@ -1,72 +1,80 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'session.dart';
 
 class CandidateApi {
   final String baseUrl = "http://10.0.2.2:8000/api";
 
-  Map<String, String> get headers => {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${Session.token}",
-      };
+  // ================= HEADERS =================
+  Future<Map<String, String>> _headers() async {
+    final token = await Session.getToken();
 
-  // ================= PROFILE =================
-  Future<Map<String, dynamic>> getProfile() async {
-    final res = await http.get(
-      Uri.parse("$baseUrl/accounts/profiles/me/"),
-      headers: headers,
-    );
-
-    return jsonDecode(res.body);
+    return {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    };
   }
 
-  // ================= JOBS =================
+  // ================= GET JOBS =================
   Future<List> getJobs() async {
     final res = await http.get(
       Uri.parse("$baseUrl/jobs/"),
-      headers: headers,
+      headers: await _headers(),
     );
 
     return jsonDecode(res.body);
   }
 
   // ================= APPLY JOB =================
-  Future<Map<String, dynamic>> applyJob(int jobId) async {
-    final res = await http.post(
-      Uri.parse("$baseUrl/jobs/$jobId/apply/"),
-      headers: headers,
+  Future<void> applyJob(int jobId) async {
+    await http.post(
+      Uri.parse("$baseUrl/applications/"),
+      headers: await _headers(),
+      body: jsonEncode({
+        "job": jobId,
+      }),
+    );
+  }
+
+  // ================= MY APPLICATIONS =================
+  Future<List> getApplications() async {
+    final res = await http.get(
+      Uri.parse("$baseUrl/applications/my/"),
+      headers: await _headers(),
     );
 
     return jsonDecode(res.body);
   }
 
-  // ================= APPLICATIONS =================
-  Future<List> getApplications() async {
+  // ================= PROFILE =================
+  Future<Map> getProfile() async {
     final res = await http.get(
-      Uri.parse("$baseUrl/jobs/my-applications/"),
-      headers: headers,
+      Uri.parse("$baseUrl/profile/"),
+      headers: await _headers(),
     );
 
     return jsonDecode(res.body);
   }
 
   // ================= UPLOAD RESUME =================
-  Future uploadResume(String filePath) async {
+  Future<void> uploadResume(File file) async {
+    final token = await Session.getToken();
+
     var request = http.MultipartRequest(
       'POST',
-      Uri.parse("$baseUrl/accounts/upload-resume/"),
+      Uri.parse("$baseUrl/profile/upload-resume/"),
     );
 
-    request.headers.addAll({
-      "Authorization": "Bearer ${Session.token}",
-    });
+    request.headers['Authorization'] = "Bearer $token";
 
-    request.files.add(await http.MultipartFile.fromPath(
-      'resume',
-      filePath,
-    ));
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'resume_file',
+        file.path,
+      ),
+    );
 
-    final res = await request.send();
-    return res.statusCode == 200;
+    await request.send();
   }
 }
