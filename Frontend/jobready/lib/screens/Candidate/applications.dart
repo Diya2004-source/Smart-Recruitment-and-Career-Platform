@@ -1,48 +1,45 @@
 import 'package:flutter/material.dart';
-import '../../services/candidate_api.dart';
+import 'package:jobready/services/candidate_api.dart';
 
-class Applications extends StatefulWidget {
-  const Applications({super.key});
+class ApplicationsPage extends StatefulWidget {
+  const ApplicationsPage({super.key});
 
   @override
-  State<Applications> createState() => _ApplicationsState();
+  State<ApplicationsPage> createState() => _ApplicationsPageState();
 }
 
-class _ApplicationsState extends State<Applications> {
-  final api = CandidateApi();
-  List apps = [];
-  bool loading = true;
+class _ApplicationsPageState extends State<ApplicationsPage> {
+  late Future applications;
 
   @override
   void initState() {
     super.initState();
-    load();
-  }
-
-  void load() async {
-    apps = await api.getApplications();
-    setState(() => loading = false);
+    applications = CandidateApi.getApplications(); // ✅ FIXED
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("My Applications")),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: apps.length,
-              itemBuilder: (c, i) {
-                final app = apps[i];
+      body: FutureBuilder(
+        future: applications,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-                return Card(
-                  child: ListTile(
-                    title: Text(app['job']['title']),
-                    subtitle: Text("Status: ${app['status']}"),
-                  ),
-                );
-              },
-            ),
+          final data = snapshot.data as List;
+
+          return ListView.builder(
+            itemCount: data.length,
+            itemBuilder: (context, index) {
+              return ListTile(
+                title: Text(data[index]['job_title'] ?? ''),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

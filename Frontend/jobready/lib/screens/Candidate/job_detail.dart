@@ -1,54 +1,29 @@
 import 'package:flutter/material.dart';
-import '../../services/candidate_api.dart';
+import 'package:jobready/services/candidate_api.dart';
 
-class JobDetail extends StatefulWidget {
-  final Map job;
+class JobDetail extends StatelessWidget {
+  final int jobId;
 
-  const JobDetail({super.key, required this.job});
+  const JobDetail({super.key, required this.jobId});
 
-  @override
-  State<JobDetail> createState() => _JobDetailState();
-}
+  Future<void> applyJob(BuildContext context) async {
+    await CandidateApi.applyJob(jobId); // ✅ FIXED
 
-class _JobDetailState extends State<JobDetail> {
-  final api = CandidateApi();
-  bool loading = false;
-
-  void apply() async {
-    setState(() => loading = true);
-
-    await api.applyJob(widget.job['id']);
-
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Applied Successfully")),
+      const SnackBar(content: Text("Job Applied Successfully")),
     );
-
-    setState(() => loading = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final job = widget.job;
-
     return Scaffold(
-      appBar: AppBar(title: Text(job['title'])),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(job['description']),
-            const SizedBox(height: 20),
-
-            ElevatedButton(
-              onPressed: loading ? null : apply,
-              child: loading
-                  ? const CircularProgressIndicator()
-                  : const Text("Apply"),
-            ),
-          ],
+      appBar: AppBar(title: const Text("Job Details")),
+      body: Center(
+        child: ElevatedButton(
+          onPressed: () => applyJob(context),
+          child: const Text("Apply"),
         ),
       ),
     );

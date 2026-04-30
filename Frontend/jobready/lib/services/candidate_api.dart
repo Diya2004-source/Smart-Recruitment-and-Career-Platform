@@ -1,80 +1,85 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'session.dart';
 
 class CandidateApi {
-  final String baseUrl = "http://10.0.2.2:8000/api";
+  static String baseUrl = "http://10.0.2.2:8000/api";
 
   // ================= HEADERS =================
-  Future<Map<String, String>> _headers() async {
-    final token = await Session.getToken();
+  static Future<Map<String, String>> _headers() async {
+    final token = await Session.getToken(); // 🔴 FIXED
 
     return {
-      "Content-Type": "application/json",
       "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
     };
   }
 
-  // ================= GET JOBS =================
-  Future<List> getJobs() async {
-    final res = await http.get(
+  // ================= SAFE PARSER =================
+  static List<dynamic> _parseListResponse(dynamic data) {
+    if (data is List) return data;
+
+    if (data is Map && data.containsKey("results")) {
+      return data["results"];
+    }
+
+    return [];
+  }
+
+  // ================= JOBS =================
+  static Future<List<dynamic>> getJobs() async {
+    final response = await http.get(
       Uri.parse("$baseUrl/jobs/"),
       headers: await _headers(),
     );
 
-    return jsonDecode(res.body);
+    if (response.statusCode == 200) {
+      return _parseListResponse(jsonDecode(response.body));
+    } else {
+      throw Exception("Job API Failed (${response.statusCode})");
+    }
+  }
+
+  // ================= APPLICATIONS =================
+  static Future<List<dynamic>> getApplications() async {
+    final response = await http.get(
+      Uri.parse("$baseUrl/applications/"),
+      headers: await _headers(),
+    );
+
+    if (response.statusCode == 200) {
+      return _parseListResponse(jsonDecode(response.body));
+    } else {
+      throw Exception("Applications API Failed (${response.statusCode})");
+    }
   }
 
   // ================= APPLY JOB =================
-  Future<void> applyJob(int jobId) async {
-    await http.post(
+  static Future<void> applyJob(int jobId) async {
+    final response = await http.post(
       Uri.parse("$baseUrl/applications/"),
       headers: await _headers(),
-      body: jsonEncode({
-        "job": jobId,
-      }),
-    );
-  }
-
-  // ================= MY APPLICATIONS =================
-  Future<List> getApplications() async {
-    final res = await http.get(
-      Uri.parse("$baseUrl/applications/my/"),
-      headers: await _headers(),
+      body: jsonEncode({"job": jobId}), // 🔴 MUST BE INT
     );
 
-    return jsonDecode(res.body);
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      return;
+    } else {
+      throw Exception(jsonDecode(response.body).toString());
+    }
   }
 
   // ================= PROFILE =================
-  Future<Map> getProfile() async {
-    final res = await http.get(
-      Uri.parse("$baseUrl/profile/"),
+  static Future<Map<String, dynamic>> getProfile() async {
+    final response = await http.get(
+      Uri.parse("$baseUrl/candidateprofile/me/"),
       headers: await _headers(),
     );
 
-    return jsonDecode(res.body);
-  }
-
-  // ================= UPLOAD RESUME =================
-  Future<void> uploadResume(File file) async {
-    final token = await Session.getToken();
-
-    var request = http.MultipartRequest(
-      'POST',
-      Uri.parse("$baseUrl/profile/upload-resume/"),
-    );
-
-    request.headers['Authorization'] = "Bearer $token";
-
-    request.files.add(
-      await http.MultipartFile.fromPath(
-        'resume_file',
-        file.path,
-      ),
-    );
-
-    await request.send();
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception("Profile API Failed (${response.statusCode})");
+    }
   }
 }

@@ -1,41 +1,38 @@
 import 'package:flutter/material.dart';
-import '../../services/candidate_api.dart';
+import 'package:jobready/services/candidate_api.dart';
 
-class Profile extends StatefulWidget {
-  const Profile({super.key});
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
 
   @override
-  State<Profile> createState() => _ProfileState();
+  State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfileState extends State<Profile> {
-  final api = CandidateApi();
-  Map? profile;
-  bool loading = true;
+class _ProfilePageState extends State<ProfilePage> {
+  late Future profile;
 
   @override
   void initState() {
     super.initState();
-    load();
-  }
-
-  void load() async {
-    profile = await api.getProfile();
-    setState(() => loading = false);
+    profile = CandidateApi.getProfile(); // ✅ FIXED
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Profile")),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Text("Username: ${profile!['user']['username']}"),
-                Text("Experience: ${profile!['experience_years']} yrs"),
-              ],
-            ),
+      body: FutureBuilder(
+        future: profile,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final data = snapshot.data;
+
+          return Text(data.toString());
+        },
+      ),
     );
   }
 }

@@ -1,61 +1,45 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Session {
-  static String? token;
-  static String? role;
+  static String? _token;
+  static String? _role;
 
-  // ================= SAVE SESSION =================
-  static Future<void> saveSession(String t, String r) async {
+  static Future<void> saveSession(String token, String role) async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setString("token", token);
+    await prefs.setString("role", role);
 
-    await prefs.setString("token", t);
-    await prefs.setString("role", r);
-
-    token = t;
-    role = r;
+    _token = token;
+    _role = role;
   }
 
-  // ================= LOAD SESSION =================
   static Future<void> loadSession() async {
     final prefs = await SharedPreferences.getInstance();
-
-    token = prefs.getString("token");
-    role = prefs.getString("role");
+    _token = prefs.getString("token");
+    _role = prefs.getString("role");
   }
 
-  // ================= GET TOKEN (🔥 FIX) =================
   static Future<String?> getToken() async {
-    if (token != null) return token;
+    if (_token != null) return _token;
 
     final prefs = await SharedPreferences.getInstance();
-    token = prefs.getString("token");
-
-    return token;
+    _token = prefs.getString("token");
+    return _token;
   }
 
-  // ================= GET ROLE =================
   static Future<String?> getRole() async {
-    if (role != null) return role;
+    if (_role != null) return _role;
 
     final prefs = await SharedPreferences.getInstance();
-    role = prefs.getString("role");
-
-    return role;
+    _role = prefs.getString("role");
+    return _role;
   }
 
-  // ================= CHECK LOGIN =================
-  static Future<bool> isLoggedIn() async {
-    final t = await getToken();
-    return t != null && t.isNotEmpty;
-  }
-
-  // ================= LOGOUT =================
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-
     await prefs.clear();
 
-    token = null;
-    role = null;
+    _token = null;
+    _role = null;
   }
 }

@@ -4,7 +4,8 @@ from .views import UserViewSet, CandidateProfileViewSet, login_view , AdminDashb
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
-router.register(r'profiles', CandidateProfileViewSet, basename='candidate-profile')
+router.register(r'profiles', CandidateProfileViewSet, basename='candidate-profile'),
+
 
 urlpatterns = [
     path('admin/report/', GenerateReportView.as_view()),
