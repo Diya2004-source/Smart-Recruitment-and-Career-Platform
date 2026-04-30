@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:jobready/services/candidate_api.dart';
+import '../../services/candidate_api.dart';
+import 'job_feed.dart';
 
 class jobseekerdashboard extends StatefulWidget {
   const jobseekerdashboard({super.key});
@@ -9,150 +10,121 @@ class jobseekerdashboard extends StatefulWidget {
 }
 
 class _jobseekerdashboardState extends State<jobseekerdashboard> {
-  List jobs = [];
-  List applications = [];
-  bool loading = true;
-
-  final Color primary = const Color(0xFFFF8C00);
+  final Color primaryOrange = const Color(0xFFFF8C00);
+  bool _isSidebarOpen = true;
+  String _candidateName = "Candidate";
+  int _appliedCount = 0;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    load();
+    _loadDashboardData();
   }
 
-  Future<void> load() async {
-    setState(() => loading = true);
-
+  Future<void> _loadDashboardData() async {
+    setState(() => _isLoading = true);
     try {
-      final jobRes = await CandidateApi.getJobs();
-      final appRes = await CandidateApi.getApplications();
+      final results = await Future.wait([
+        CandidateApi.getApplications(),
+        CandidateApi.getProfile(),
+      ]);
 
       setState(() {
-        jobs = jobRes;
-        applications = appRes;
+        _appliedCount = (results[0] as List).length;
+        // Accessing name from the profile map
+        _candidateName = (results[1] as Map)['full_name'] ?? "Candidate";
+        _isLoading = false;
       });
-
-      debugPrint("✅ JOBS LOADED: ${jobs.length}");
-      debugPrint("RAW: $jobs");
     } catch (e) {
-      debugPrint("❌ LOAD ERROR: $e");
+      if (mounted) setState(() => _isLoading = false);
     }
-
-    if (!mounted) return;
-    setState(() => loading = false);
-  }
-
-  Future<void> apply(int id) async {
-    try {
-      await CandidateApi.applyJob(id);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Applied successfully")),
-      );
-
-      load();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
-    }
-  }
-
-  Widget jobCard(dynamic job) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 8),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            job["title"] ?? "No Title",
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          Text(job["location"] ?? "Unknown"),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: primary),
-              onPressed: () => apply(job["id"]),
-              child: const Text("Apply"),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
-
       appBar: AppBar(
-        title: const Text("Candidate Dashboard"),
-        backgroundColor: primary,
+        backgroundColor: primaryOrange, // Orange BG
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white), // White Icons
+        leading: IconButton(
+          icon: Icon(_isSidebarOpen ? Icons.menu_open : Icons.menu),
+          onPressed: () => setState(() => _isSidebarOpen = !_isSidebarOpen),
+        ),
+        title: const Text(
+          "Candidate Panel", 
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold) // White Font
+        ),
       ),
-
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: load,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Row(
-                    children: [
-                      _stat("Applied", applications.length),
-                      _stat("Jobs", jobs.length),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  const Text(
-                    "Recommended Jobs",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  jobs.isEmpty
-                      ? const Center(child: Text("No jobs found"))
-                      : Column(
-                          children: jobs.map((j) => jobCard(j)).toList(),
-                        ),
-                ],
-              ),
-            ),
+      body: Row(
+        children: [
+          if (_isSidebarOpen) _buildSidebar(),
+          Expanded(
+            child: _isLoading 
+              ? Center(child: CircularProgressIndicator(color: primaryOrange))
+              : _buildDashboardContent(),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _stat(String title, int count) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.all(6),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: primary,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            Text("$count",
-                style: const TextStyle(color: Colors.white, fontSize: 20)),
-            Text(title, style: const TextStyle(color: Colors.white)),
-          ],
-        ),
+  Widget _buildSidebar() {
+    return Container(
+      width: 250,
+      color: Colors.white,
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          _sidebarItem(Icons.dashboard, "Dashboard", isSelected: true),
+          _sidebarItem(Icons.search, "Find Jobs", onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const JobFeed()));
+          }),
+          _sidebarItem(Icons.assignment, "My Applications"),
+          _sidebarItem(Icons.person, "Profile"),
+          const Spacer(),
+          _sidebarItem(Icons.logout, "Logout"),
+        ],
+      ),
+    );
+  }
+
+  Widget _sidebarItem(IconData icon, String title, {bool isSelected = false, VoidCallback? onTap}) {
+    return ListTile(
+      onTap: onTap,
+      leading: Icon(icon, color: isSelected ? primaryOrange : Colors.grey),
+      title: Text(title, style: TextStyle(color: isSelected ? primaryOrange : Colors.black87)),
+    );
+  }
+
+  Widget _buildDashboardContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Welcome, $_candidateName", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: primaryOrange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Row(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("Applications Sent", style: TextStyle(color: Colors.black54)),
+                    Text("$_appliedCount", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: primaryOrange)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

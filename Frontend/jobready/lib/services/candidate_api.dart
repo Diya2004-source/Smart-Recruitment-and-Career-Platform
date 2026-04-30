@@ -3,12 +3,12 @@ import 'package:http/http.dart' as http;
 import 'session.dart';
 
 class CandidateApi {
+  // Use 10.0.2.2 for Android Emulator to point to your computer's localhost
   static const String baseUrl = "http://10.0.2.2:8000/api";
 
   // ================= HEADERS =================
   static Future<Map<String, String>> _headers() async {
     final token = await Session.getToken();
-
     return {
       "Authorization": "Bearer $token",
       "Content-Type": "application/json",
@@ -17,20 +17,18 @@ class CandidateApi {
   }
 
   // ================= PARSER =================
+  // Handles lists, paginated results, and null data safely
   static List<dynamic> _parseList(dynamic data) {
     if (data == null) return [];
-
     if (data is List) return data;
-
     if (data is Map<String, dynamic>) {
-      if (data.containsKey("results")) return data["results"];
-      if (data.containsKey("data")) return data["data"];
+      if (data.containsKey("results")) return data["results"] ?? [];
+      if (data.containsKey("data")) return data["data"] ?? [];
     }
-
     return [];
   }
 
-  // ================= GET JOBS (FIXED) =================
+  // ================= GET JOBS =================
   static Future<List<dynamic>> getJobs() async {
     try {
       final response = await http.get(
@@ -42,11 +40,9 @@ class CandidateApi {
         final decoded = jsonDecode(response.body);
         return _parseList(decoded);
       }
-
-      // IMPORTANT DEBUG
-      throw Exception("Jobs API Error: ${response.statusCode} ${response.body}");
+      throw Exception("Jobs API Error: ${response.statusCode}");
     } catch (e) {
-      throw Exception("Jobs fetch failed: $e");
+      throw Exception("Failed to load jobs: $e");
     }
   }
 
@@ -61,12 +57,9 @@ class CandidateApi {
       if (response.statusCode == 200) {
         return _parseList(jsonDecode(response.body));
       }
-
-      throw Exception(
-        "Applications API Error: ${response.statusCode} ${response.body}",
-      );
+      throw Exception("Applications Error: ${response.statusCode}");
     } catch (e) {
-      throw Exception("Applications fetch failed: $e");
+      throw Exception("Failed to load applications: $e");
     }
   }
 
@@ -83,22 +76,26 @@ class CandidateApi {
     }
   }
 
-  // ================= PROFILE (FIXED ENDPOINT) =================
+  // ================= PROFILE (FIXED 404) =================
   static Future<Map<String, dynamic>> getProfile() async {
-    final response = await http.get(
-      Uri.parse("$baseUrl/accounts/candidateprofile/me/"),
-      headers: await _headers(),
-    );
+    try {
+      final response = await http.get(
+        // Updated path to match your Django router: router.register(r'profiles', ...)
+        Uri.parse("$baseUrl/accounts/profiles/me/"), 
+        headers: await _headers(),
+      );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-
-      if (data is List && data.isNotEmpty) return data[0];
-      if (data is Map<String, dynamic>) return data;
-
-      return {};
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        // Handles if Django returns a list [profile] or a single object {profile}
+        if (data is List && data.isNotEmpty) return data[0];
+        if (data is Map<String, dynamic>) return data;
+        return {};
+      }
+      throw Exception("Profile Not Found: ${response.statusCode}");
+    } catch (e) {
+      throw Exception("Profile fetch failed: $e");
     }
-
-    throw Exception("Profile API Error: ${response.body}");
   }
 }
