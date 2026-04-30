@@ -1,45 +1,36 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Session {
-  static String? _token;
-  static String? _role;
+  static const _tokenKey = "access_token";
+  static const _roleKey = "role";
 
+  // SAVE LOGIN SESSION
   static Future<void> saveSession(String token, String role) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("token", token);
-    await prefs.setString("role", role);
-
-    _token = token;
-    _role = role;
+    await prefs.setString(_tokenKey, token);
+    await prefs.setString(_roleKey, role);
   }
 
-  static Future<void> loadSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString("token");
-    _role = prefs.getString("role");
-  }
-
+  // GET TOKEN
   static Future<String?> getToken() async {
-    if (_token != null) return _token;
-
     final prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString("token");
-    return _token;
+    return prefs.getString(_tokenKey);
   }
 
+  // GET ROLE
   static Future<String?> getRole() async {
-    if (_role != null) return _role;
-
     final prefs = await SharedPreferences.getInstance();
-    _role = prefs.getString("role");
-    return _role;
+    return prefs.getString(_roleKey);
   }
 
+  // LOGOUT
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
+  }
 
-    _token = null;
-    _role = null;
+  // FIX FOR YOUR ERROR (main.dart)
+  static Future<void> loadSession() async {
+    return;
   }
 }

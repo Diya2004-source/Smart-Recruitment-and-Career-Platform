@@ -2,9 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-import './reports_page.dart';
-import 'users_list.dart';
-
 class admindashboard extends StatefulWidget {
   const admindashboard({super.key});
 
@@ -13,8 +10,9 @@ class admindashboard extends StatefulWidget {
 }
 
 class _admindashboardState extends State<admindashboard> {
-  final Color primary = const Color(0xFFFF8C00);
-
+  final Color primaryOrange = const Color(0xFFFF8C00); 
+  final Color backgroundGray = const Color(0xFFF4F7F9); // Slightly cooler gray like LinkedIn
+  
   bool loading = true;
   Map<String, dynamic>? data;
   String token = "";
@@ -22,326 +20,220 @@ class _admindashboardState extends State<admindashboard> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
     final args = ModalRoute.of(context)?.settings.arguments;
-
     if (args == null) {
-      Future.microtask(() {
-        Navigator.pushReplacementNamed(context, '/login');
-      });
+      Future.microtask(() => Navigator.pushReplacementNamed(context, '/login'));
       return;
     }
-
     token = args.toString();
     fetchData();
   }
 
   Future<void> fetchData() async {
-    setState(() => loading = true);
-
-    final res = await http.get(
-      Uri.parse("http://10.0.2.2:8000/api/accounts/admin/dashboard/"),
-      headers: {"Authorization": "Bearer $token"},
-    );
-
-    if (res.statusCode == 200) {
-      setState(() {
-        data = jsonDecode(res.body);
-        loading = false;
-      });
-    } else {
+    try {
+      final res = await http.get(
+        Uri.parse("http://10.0.2.2:8000/api/accounts/admin/dashboard/"),
+        headers: {"Authorization": "Bearer $token"},
+      );
+      if (res.statusCode == 200) {
+        setState(() {
+          data = jsonDecode(res.body);
+          loading = false;
+        });
+      }
+    } catch (e) {
       setState(() => loading = false);
     }
   }
 
-  // ================= NAVIGATION =================
-
-  void openUsers() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => UsersListPage(
-          token: token,
-          type: "all",
-        ),
+  // ================= SIDEBAR =================
+  Widget _buildSidebar() {
+    return Drawer(
+      backgroundColor: Colors.white,
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            decoration: BoxDecoration(color: primaryOrange),
+            child: Column(
+              children: [
+                // Logo added here
+                Image.asset('assets/images/Logo.png', height: 80, errorBuilder: (c, e, s) => const Icon(Icons.business, size: 50, color: Colors.white)),
+                const SizedBox(height: 12),
+                const Text("HireHub Admin", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          _navItem(Icons.analytics, "Insight Overview", () => Navigator.pop(context)),
+          _navItem(Icons.people_alt, "User Directory", () => _navToUsers("all")),
+          _navItem(Icons.assignment_turned_in, "Verify Employers", () {}),
+          _navItem(Icons.campaign, "Job Postings", () {}),
+          _navItem(Icons.description, "System Reports", () {}),
+          const Divider(),
+          _navItem(Icons.settings, "Platform Settings", () {}),
+          const Spacer(),
+          _navItem(Icons.logout, "Sign Out", () => Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false), isLogout: true),
+          const SizedBox(height: 20),
+        ],
       ),
     );
   }
 
-  void openReports() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ReportsPage(token: token),
+  Widget _navItem(IconData icon, String title, VoidCallback onTap, {bool isLogout = false}) {
+    return ListTile(
+      leading: Icon(icon, color: isLogout ? Colors.red : primaryOrange.withOpacity(0.8)),
+      title: Text(title, style: TextStyle(color: isLogout ? Colors.red : Colors.black87, fontWeight: FontWeight.w500)),
+      onTap: onTap,
+    );
+  }
+
+  // ================= AI INSIGHT (LinkedIn Style) =================
+  Widget _aiInsightCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: primaryOrange.withOpacity(0.3)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)],
       ),
-    );
-  }
-
-  void logout() {
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      '/login',
-      (route) => false,
-    );
-  }
-
-  // ================= CARD CLICK =================
-
-  void onCardTap(String type) {
-    if (type == "users") openUsers();
-    if (type == "reports") openReports();
-  }
-
-  // ================= DASHBOARD UI =================
-
-  Widget dashboardView() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
-          const Text(
-            "Dashboard",
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-
-          const SizedBox(height: 20),
-
-          // ================= CARDS =================
-          GridView(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 1.3,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
+          Row(
             children: [
-
-              _card("Users", data?["total_users"] ?? 0,
-                  Icons.people, Colors.blue,
-                  () => onCardTap("users")),
-
-              _card("Candidates", data?["candidates"] ?? 0,
-                  Icons.person, Colors.green,
-                  () => onCardTap("candidates")),
-
-              _card("Employers", data?["employers"] ?? 0,
-                  Icons.work, primary,
-                  () => onCardTap("employers")),
-
-              _card("Reports", data?["reports"] ?? 0,
-                  Icons.report, Colors.purple,
-                  () => onCardTap("reports")),
+              Icon(Icons.auto_awesome, color: primaryOrange, size: 20),
+              const SizedBox(width: 8),
+              const Text("AI TALENT ADVISOR", style: TextStyle(letterSpacing: 1.2, fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
             ],
           ),
+          const SizedBox(height: 10),
+          const Text(
+            "Software engineering applications are up 20% this week. We recommend promoting more 'Junior Developer' roles to meet the candidate surge.",
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
 
-          const SizedBox(height: 25),
+  // ================= RECENT ACTIVITY FEED =================
+  Widget _recentActivity() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Recent Platform Activity", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 15),
+          _activityTile("New Employer", "TechCorp Solutions registered.", "2 mins ago"),
+          _activityTile("Report Filed", "Job #405 flagged for spam.", "45 mins ago"),
+          _activityTile("System Update", "Database backup completed.", "3 hours ago"),
+          TextButton(onPressed: () {}, child: Text("View all activity", style: TextStyle(color: primaryOrange))),
+        ],
+      ),
+    );
+  }
 
-          // ================= AFTER CARDS SECTION (NEW ADDITION) =================
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: _box(),
+  Widget _activityTile(String title, String sub, String time) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(height: 8, width: 8, margin: const EdgeInsets.only(top: 6, right: 12), decoration: BoxDecoration(color: primaryOrange, shape: BoxShape.circle)),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
-                const Text(
-                  "System Overview",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _miniStat("Active Jobs", "${data?["active_jobs"] ?? 0}"),
-                    _miniStat("Total Users", "${data?["total_users"] ?? 0}"),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text("System Status:"),
-                    Text(
-                      "Healthy",
-                      style: TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 13)),
               ],
             ),
           ),
-
-          const SizedBox(height: 20),
-
-          // ================= QUICK INSIGHTS =================
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: _box(),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-
-                Text(
-                  "Quick Insights",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-
-                SizedBox(height: 8),
-
-                Text("• Users activity increasing"),
-                Text("• Reports being resolved regularly"),
-                Text("• Job postings are active"),
-              ],
-            ),
-          ),
+          Text(time, style: const TextStyle(color: Colors.grey, fontSize: 11)),
         ],
       ),
     );
   }
 
-  // ================= CARD =================
-
-  Widget _card(String title, dynamic value, IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: _box(),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            CircleAvatar(
-              backgroundColor: color.withOpacity(0.15),
-              child: Icon(icon, color: color),
-            ),
-            Text(
-              value.toString(),
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(title),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ================= MINI STATS =================
-
-  Widget _miniStat(String title, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(title),
-      ],
-    );
-  }
-
-  // ================= STYLE =================
-
-  BoxDecoration _box() {
-    return BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: const [
-        BoxShadow(color: Colors.black12, blurRadius: 10),
-      ],
-    );
-  }
-
-  // ================= DRAWER =================
-
-  Widget sidebar() {
-    return Drawer(
-      child: Column(
-        children: [
-
-          DrawerHeader(
-            decoration: BoxDecoration(color: primary),
-            child: const Center(
-              child: Text(
-                "ADMIN PANEL",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-
-          ListTile(
-            leading: const Icon(Icons.dashboard),
-            title: const Text("Dashboard"),
-            onTap: () => Navigator.pop(context),
-          ),
-
-          ListTile(
-            leading: const Icon(Icons.people),
-            title: const Text("Users"),
-            onTap: openUsers,
-          ),
-
-          ListTile(
-            leading: const Icon(Icons.bar_chart),
-            title: const Text("Reports"),
-            onTap: openReports,
-          ),
-
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text("Logout", style: TextStyle(color: Colors.red)),
-            onTap: logout,
-          ),
-        ],
-      ),
-    );
+  void _navToUsers(String filter) {
+    Navigator.pushNamed(context, '/users', arguments: {'token': token, 'type': filter});
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
-
+      backgroundColor: backgroundGray,
       appBar: AppBar(
+        centerTitle: false,
+        elevation: 0.5,
         backgroundColor: Colors.white,
-        iconTheme: IconThemeData(color: primary),
-        title: const Text(
-          "Admin",
-          style: TextStyle(fontWeight: FontWeight.bold),
+        iconTheme: IconThemeData(color: primaryOrange),
+        title: Row(
+          children: [
+            const Text("Control Center", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800, fontSize: 20)),
+            const Spacer(),
+            IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none_rounded, color: Colors.black54)),
+          ],
         ),
       ),
+      drawer: _buildSidebar(),
+      body: loading 
+        ? Center(child: CircularProgressIndicator(color: primaryOrange))
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _aiInsightCard(),
+                const SizedBox(height: 24),
+                const Text("Key Statistics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.5,
+                  children: [
+                    _statCard("Total Candidates", data?["candidates"] ?? 0, Icons.people, Colors.blue),
+                    _statCard("Verified Recruiters", data?["employers"] ?? 0, Icons.verified_user, Colors.indigo),
+                    _statCard("Live Job Posts", data?["active_jobs"] ?? 0, Icons.work_outline, Colors.teal),
+                    _statCard("Pending Reports", data?["reports"] ?? 0, Icons.warning_amber_rounded, Colors.red),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                _recentActivity(),
+              ],
+            ),
+          ),
+    );
+  }
 
-      drawer: sidebar(),
-
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : dashboardView(),
+  Widget _statCard(String label, dynamic value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white, 
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5, offset: const Offset(0, 2))]
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 8),
+          Text(value.toString(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w600)),
+        ],
+      ),
     );
   }
 }

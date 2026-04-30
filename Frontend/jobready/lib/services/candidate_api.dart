@@ -3,54 +3,70 @@ import 'package:http/http.dart' as http;
 import 'session.dart';
 
 class CandidateApi {
-  static String baseUrl = "http://10.0.2.2:8000/api";
+  static const String baseUrl = "http://10.0.2.2:8000/api";
 
   // ================= HEADERS =================
   static Future<Map<String, String>> _headers() async {
-    final token = await Session.getToken(); // 🔴 FIXED
+    final token = await Session.getToken();
 
     return {
       "Authorization": "Bearer $token",
       "Content-Type": "application/json",
+      "Accept": "application/json",
     };
   }
 
-  // ================= SAFE PARSER =================
-  static List<dynamic> _parseListResponse(dynamic data) {
+  // ================= PARSER =================
+  static List<dynamic> _parseList(dynamic data) {
+    if (data == null) return [];
+
     if (data is List) return data;
 
-    if (data is Map && data.containsKey("results")) {
-      return data["results"];
+    if (data is Map<String, dynamic>) {
+      if (data.containsKey("results")) return data["results"];
+      if (data.containsKey("data")) return data["data"];
     }
 
     return [];
   }
 
-  // ================= JOBS =================
+  // ================= GET JOBS (FIXED) =================
   static Future<List<dynamic>> getJobs() async {
-    final response = await http.get(
-      Uri.parse("$baseUrl/jobs/"),
-      headers: await _headers(),
-    );
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/jobs/"),
+        headers: await _headers(),
+      );
 
-    if (response.statusCode == 200) {
-      return _parseListResponse(jsonDecode(response.body));
-    } else {
-      throw Exception("Job API Failed (${response.statusCode})");
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        return _parseList(decoded);
+      }
+
+      // IMPORTANT DEBUG
+      throw Exception("Jobs API Error: ${response.statusCode} ${response.body}");
+    } catch (e) {
+      throw Exception("Jobs fetch failed: $e");
     }
   }
 
-  // ================= APPLICATIONS =================
+  // ================= GET APPLICATIONS =================
   static Future<List<dynamic>> getApplications() async {
-    final response = await http.get(
-      Uri.parse("$baseUrl/applications/"),
-      headers: await _headers(),
-    );
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/applications/"),
+        headers: await _headers(),
+      );
 
-    if (response.statusCode == 200) {
-      return _parseListResponse(jsonDecode(response.body));
-    } else {
-      throw Exception("Applications API Failed (${response.statusCode})");
+      if (response.statusCode == 200) {
+        return _parseList(jsonDecode(response.body));
+      }
+
+      throw Exception(
+        "Applications API Error: ${response.statusCode} ${response.body}",
+      );
+    } catch (e) {
+      throw Exception("Applications fetch failed: $e");
     }
   }
 
@@ -59,27 +75,30 @@ class CandidateApi {
     final response = await http.post(
       Uri.parse("$baseUrl/applications/"),
       headers: await _headers(),
-      body: jsonEncode({"job": jobId}), // 🔴 MUST BE INT
+      body: jsonEncode({"job": jobId}),
     );
 
-    if (response.statusCode == 201 || response.statusCode == 200) {
-      return;
-    } else {
-      throw Exception(jsonDecode(response.body).toString());
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      throw Exception("Apply failed: ${response.body}");
     }
   }
 
-  // ================= PROFILE =================
+  // ================= PROFILE (FIXED ENDPOINT) =================
   static Future<Map<String, dynamic>> getProfile() async {
     final response = await http.get(
-      Uri.parse("$baseUrl/candidateprofile/me/"),
+      Uri.parse("$baseUrl/accounts/candidateprofile/me/"),
       headers: await _headers(),
     );
 
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception("Profile API Failed (${response.statusCode})");
+      final data = jsonDecode(response.body);
+
+      if (data is List && data.isNotEmpty) return data[0];
+      if (data is Map<String, dynamic>) return data;
+
+      return {};
     }
+
+    throw Exception("Profile API Error: ${response.body}");
   }
 }

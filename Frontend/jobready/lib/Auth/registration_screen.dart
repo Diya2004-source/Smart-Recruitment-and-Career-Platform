@@ -231,3 +231,4 @@ class _registrationState extends State<registration> {
     );
   }
 }
+

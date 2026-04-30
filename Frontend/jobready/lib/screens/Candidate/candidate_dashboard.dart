@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:jobready/services/candidate_api.dart';
-import 'package:jobready/services/session.dart';
-import 'package:jobready/screens/Candidate/resume_upload.dart';
 
 class jobseekerdashboard extends StatefulWidget {
   const jobseekerdashboard({super.key});
@@ -15,7 +13,7 @@ class _jobseekerdashboardState extends State<jobseekerdashboard> {
   List applications = [];
   bool loading = true;
 
-  final Color orange = const Color(0xFFFF8C00);
+  final Color primary = const Color(0xFFFF8C00);
 
   @override
   void initState() {
@@ -23,19 +21,6 @@ class _jobseekerdashboardState extends State<jobseekerdashboard> {
     load();
   }
 
-  // ================= SAFE EXTRACTOR =================
-  List _extractList(dynamic data) {
-    if (data is List) return data;
-
-    if (data is Map) {
-      if (data.containsKey("results")) return data["results"];
-      if (data.containsKey("data")) return data["data"];
-    }
-
-    return [];
-  }
-
-  // ================= LOAD DATA =================
   Future<void> load() async {
     setState(() => loading = true);
 
@@ -43,143 +28,63 @@ class _jobseekerdashboardState extends State<jobseekerdashboard> {
       final jobRes = await CandidateApi.getJobs();
       final appRes = await CandidateApi.getApplications();
 
-      jobs = _extractList(jobRes);
-      applications = _extractList(appRes);
+      setState(() {
+        jobs = jobRes;
+        applications = appRes;
+      });
 
-      debugPrint("Jobs: ${jobs.length}, Applications: ${applications.length}");
+      debugPrint("✅ JOBS LOADED: ${jobs.length}");
+      debugPrint("RAW: $jobs");
     } catch (e) {
-      debugPrint("Dashboard Error: $e");
+      debugPrint("❌ LOAD ERROR: $e");
     }
 
     if (!mounted) return;
     setState(() => loading = false);
   }
 
-  // ================= APPLY JOB =================
-  Future<void> applyJob(dynamic jobId) async {
+  Future<void> apply(int id) async {
     try {
-      final int id = int.parse(jobId.toString());
-
       await CandidateApi.applyJob(id);
 
-      if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Applied Successfully")),
+        const SnackBar(content: Text("Applied successfully")),
       );
 
       load();
     } catch (e) {
-      if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e")),
       );
     }
   }
 
-  // ================= LOGOUT =================
-  void logout() async {
-    await Session.logout();
-
-    if (!mounted) return;
-
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      '/login',
-      (_) => false,
-    );
-  }
-
-  // ================= MENU =================
-  PopupMenuButton menu() {
-    return PopupMenuButton<String>(
-      onSelected: (value) {
-        if (value == "resume") {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ResumeUpload()),
-          );
-        } else if (value == "logout") {
-          logout();
-        }
-      },
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: "resume", child: Text("Upload Resume")),
-        PopupMenuItem(value: "logout", child: Text("Logout")),
-      ],
-    );
-  }
-
-  // ================= STATS =================
-  Widget statCard(String title, int count) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.all(6),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [orange, orange.withValues(alpha: 0.8)],
-          ),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            Text(
-              "$count",
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(title, style: const TextStyle(color: Colors.white)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ================= JOB CARD =================
   Widget jobCard(dynamic job) {
-    final jobId = job['id'];
-
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 6),
+          BoxShadow(color: Colors.black12, blurRadius: 8),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            job['title']?.toString() ?? "No Title",
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            job["title"] ?? "No Title",
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(Icons.location_on, size: 14, color: Colors.grey),
-              const SizedBox(width: 4),
-              Text(job['location']?.toString() ?? "Unknown"),
-            ],
-          ),
+          Text(job["location"] ?? "Unknown"),
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => applyJob(jobId),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: orange,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: primary),
+              onPressed: () => apply(job["id"]),
               child: const Text("Apply"),
             ),
           ),
@@ -188,30 +93,14 @@ class _jobseekerdashboardState extends State<jobseekerdashboard> {
     );
   }
 
-  // ================= ACTION =================
-  Widget action(IconData icon, String label, [VoidCallback? onTap]) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Icon(icon, color: orange),
-          const SizedBox(height: 4),
-          Text(label),
-        ],
-      ),
-    );
-  }
-
-  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: const Color(0xFFF4F6FA),
 
       appBar: AppBar(
-        title: const Text("Job Seeker Dashboard"),
-        backgroundColor: orange,
-        actions: [menu()],
+        title: const Text("Candidate Dashboard"),
+        backgroundColor: primary,
       ),
 
       body: loading
@@ -223,58 +112,48 @@ class _jobseekerdashboardState extends State<jobseekerdashboard> {
                 children: [
                   Row(
                     children: [
-                      statCard("Applied", applications.length),
-                      statCard("Saved", 0),
-                      statCard("Shortlisted", 0),
+                      _stat("Applied", applications.length),
+                      _stat("Jobs", jobs.length),
                     ],
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        action(Icons.work, "Jobs"),
-                        action(Icons.upload_file, "Resume", () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ResumeUpload(),
-                            ),
-                          );
-                        }),
-                        action(Icons.list, "Applied"),
-                      ],
-                    ),
                   ),
 
                   const SizedBox(height: 20),
 
                   const Text(
                     "Recommended Jobs",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
 
                   const SizedBox(height: 10),
 
                   jobs.isEmpty
-                      ? const Center(child: Text("No jobs available"))
+                      ? const Center(child: Text("No jobs found"))
                       : Column(
-                          children:
-                              jobs.map((job) => jobCard(job)).toList(),
+                          children: jobs.map((j) => jobCard(j)).toList(),
                         ),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _stat(String title, int count) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: primary,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Text("$count",
+                style: const TextStyle(color: Colors.white, fontSize: 20)),
+            Text(title, style: const TextStyle(color: Colors.white)),
+          ],
+        ),
+      ),
     );
   }
 }
