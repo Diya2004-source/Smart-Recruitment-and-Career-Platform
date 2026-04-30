@@ -1,15 +1,9 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:fl_chart/fl_chart.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:open_file/open_file.dart';
 
 class ReportsPage extends StatefulWidget {
   final String token;
-
   const ReportsPage({super.key, required this.token});
 
   @override
@@ -18,205 +12,92 @@ class ReportsPage extends StatefulWidget {
 
 class _ReportsPageState extends State<ReportsPage> {
   bool isLoading = true;
-
-  int total = 0;
-  int pending = 0;
-  int resolved = 0;
-
-  List<int> monthlyReports = [];
+  Map<String, dynamic> reportData = {
+    "total_users": 0,
+    "active_jobs": 0,
+    "candidates": 0,
+    "recruiters": 0,
+  };
 
   @override
   void initState() {
     super.initState();
-    fetchReports();
+    fetchReportData();
   }
 
-  Future<void> fetchReports() async {
-    setState(() => isLoading = true);
-
-    final response = await http.get(
-      Uri.parse("http://10.0.2.2:8000/api/accounts/admin/dashboard/"),
-      headers: {
-        "Authorization": "Bearer ${widget.token}",
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-
-      setState(() {
-        total = data["reports"] ?? 0;
-        pending = 5;   // replace with backend if available
-        resolved = 7;  // replace with backend if available
-
-        // dummy monthly data (replace with backend later)
-        monthlyReports = [3, 5, 2, 8, 6, 10];
-
-        isLoading = false;
+  Future<void> fetchReportData() async {
+    // Reusing your admin dashboard endpoint which contains these stats
+    final url = Uri.parse('http://10.0.2.2:8000/api/accounts/admin/dashboard/');
+    
+    try {
+      final response = await http.get(url, headers: {
+        'Authorization': 'Bearer ${widget.token}',
+        'Content-Type': 'application/json',
       });
-    } else {
-      setState(() => isLoading = false);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          reportData = data;
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to load reports")),
+        );
+      }
     }
-  }
-
-  Future<void> downloadReport() async {
-    final response = await http.get(
-      Uri.parse("http://10.0.2.2:8000/api/accounts/admin/report/"),
-      headers: {"Authorization": "Bearer ${widget.token}"},
-    );
-
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File("${dir.path}/admin_report.pdf");
-
-    await file.writeAsBytes(response.bodyBytes);
-    await OpenFile.open(file.path);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Reports Analytics"),
+        title: const Text("System Reports", style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0.5,
         actions: [
           IconButton(
-            icon: const Icon(Icons.download),
-            onPressed: downloadReport,
-          ),
-          IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: fetchReports,
-          ),
+            onPressed: fetchReportData,
+          )
         ],
       ),
-
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          ? const Center(child: CircularProgressIndicator(color: Colors.orange))
+          : RefreshIndicator(
+              onRefresh: fetchReportData,
+              child: GridView.count(
+                crossAxisCount: 2,
+                padding: const EdgeInsets.all(16),
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
                 children: [
-
-                  // ================= SUMMARY =================
-                  const Text(
-                    "Report Overview",
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _statBox("Total", total, Colors.blue),
-                      _statBox("Pending", pending, Colors.orange),
-                      _statBox("Resolved", resolved, Colors.green),
-                    ],
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  // ================= PIE CHART =================
-                  const Text(
-                    "Status Distribution",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  SizedBox(
-                    height: 250,
-                    child: PieChart(
-                      PieChartData(
-                        sections: [
-                          PieChartSectionData(
-                            value: pending.toDouble(),
-                            title: "Pending",
-                            color: Colors.orange,
-                            radius: 80,
-                          ),
-                          PieChartSectionData(
-                            value: resolved.toDouble(),
-                            title: "Resolved",
-                            color: Colors.green,
-                            radius: 80,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  // ================= BAR CHART =================
-                  const Text(
-                    "Monthly Reports",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  SizedBox(
-                    height: 250,
-                    child: BarChart(
-                      BarChartData(
-                        barGroups: monthlyReports
-                            .asMap()
-                            .entries
-                            .map(
-                              (e) => BarChartGroupData(
-                                x: e.key,
-                                barRods: [
-                                  BarChartRodData(
-                                    toY: e.value.toDouble(),
-                                    width: 16,
-                                    color: Colors.blue,
-                                  ),
-                                ],
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  // ================= DOWNLOAD BUTTON =================
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.download),
-                      label: const Text("Download Full Report PDF"),
-                      onPressed: downloadReport,
-                    ),
-                  ),
+                  _buildReportCard("Total Users", reportData["total_users"].toString(), Icons.people),
+                  _buildReportCard("Active Jobs", reportData["active_jobs"].toString(), Icons.business_center),
+                  _buildReportCard("Candidates", reportData["candidates"].toString(), Icons.school),
+                  _buildReportCard("Recruiters", reportData["recruiters"].toString(), Icons.work),
                 ],
               ),
             ),
     );
   }
 
-  Widget _statBox(String title, int value, Color color) {
-    return Container(
-      width: 100,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color),
-      ),
+  Widget _buildReportCard(String title, String value, IconData icon) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            value.toString(),
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Text(title),
+          Icon(icon, color: Colors.orange, size: 40),
+          const SizedBox(height: 10),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
         ],
       ),
     );

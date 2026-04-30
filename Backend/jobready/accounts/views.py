@@ -29,7 +29,9 @@ from rest_framework.permissions import BasePermission
 
 class IsAdminUserRole(BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == 'admin'
+        # Case-insensitive check to prevent 403 Forbidden errors
+        return (request.user.is_authenticated and 
+                request.user.role.upper() == 'ADMIN')
 
 
 # ================= USER =================
@@ -165,3 +167,32 @@ class GenerateReportView(APIView):
 
         p.save()
         return response
+
+
+class AllJobsListView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAdminUserRole]
+
+    def get(self, request):
+        # Optimized query to fetch the recruiter user AND their profile in one go
+        jobs = Job.objects.select_related('recruiter__recruiter_profile').all()
+        
+        job_list = []
+        for job in jobs:
+            # 1. Get the recruiter (User object)
+            recruiter_user = job.recruiter
+            
+            # 2. Safely get the company name from the related profile
+            company = "N/A"
+            if recruiter_user and hasattr(recruiter_user, 'recruiter_profile'):
+                company = recruiter_user.recruiter_profile.company_name
+
+            job_list.append({
+                'id': job.id,
+                'title': job.title,
+                'company_name': company,
+                'location': job.location,
+                'is_active': job.is_active
+            })
+        
+        return Response({"jobs": job_list}, status=status.HTTP_200_OK)

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../../services/session.dart';
 
 class admindashboard extends StatefulWidget {
   const admindashboard({super.key});
@@ -10,9 +11,9 @@ class admindashboard extends StatefulWidget {
 }
 
 class _admindashboardState extends State<admindashboard> {
-  final Color primaryOrange = const Color(0xFFFF8C00); 
-  final Color backgroundGray = const Color(0xFFF4F7F9); // Slightly cooler gray like LinkedIn
-  
+  final Color primaryOrange = const Color(0xFFFF8C00);
+  final Color backgroundGray = const Color(0xFFF4F7F9);
+
   bool loading = true;
   Map<String, dynamic>? data;
   String token = "";
@@ -21,11 +22,18 @@ class _admindashboardState extends State<admindashboard> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments;
-    if (args == null) {
+    
+    // Safety check: prioritize passed arguments, fallback to Session service
+    if (args != null) {
+      token = args.toString();
+    } else {
+      token = Session.token;
+    }
+
+    if (token.isEmpty) {
       Future.microtask(() => Navigator.pushReplacementNamed(context, '/login'));
       return;
     }
-    token = args.toString();
     fetchData();
   }
 
@@ -35,18 +43,22 @@ class _admindashboardState extends State<admindashboard> {
         Uri.parse("http://10.0.2.2:8000/api/accounts/admin/dashboard/"),
         headers: {"Authorization": "Bearer $token"},
       );
-      if (res.statusCode == 200) {
+      if (res.statusCode == 200 && mounted) {
         setState(() {
           data = jsonDecode(res.body);
           loading = false;
         });
       }
     } catch (e) {
-      setState(() => loading = false);
+      if (mounted) setState(() => loading = false);
     }
   }
 
-  // ================= SIDEBAR =================
+  void _navigateTo(String routeName) {
+    Navigator.pushNamed(context, routeName, arguments: token);
+  }
+
+  // ================= SIDEBAR (YOUR ORIGINAL UI) =================
   Widget _buildSidebar() {
     return Drawer(
       backgroundColor: Colors.white,
@@ -58,23 +70,29 @@ class _admindashboardState extends State<admindashboard> {
             decoration: BoxDecoration(color: primaryOrange),
             child: Column(
               children: [
-                // Logo added here
-                Image.asset('assets/images/Logo.png', height: 80, errorBuilder: (c, e, s) => const Icon(Icons.business, size: 50, color: Colors.white)),
+                const Icon(Icons.business, size: 50, color: Colors.white),
                 const SizedBox(height: 12),
-                const Text("HireHub Admin", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text("HireHub Admin",
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold)),
               ],
             ),
           ),
           const SizedBox(height: 10),
           _navItem(Icons.analytics, "Insight Overview", () => Navigator.pop(context)),
-          _navItem(Icons.people_alt, "User Directory", () => _navToUsers("all")),
-          _navItem(Icons.assignment_turned_in, "Verify Employers", () {}),
-          _navItem(Icons.campaign, "Job Postings", () {}),
-          _navItem(Icons.description, "System Reports", () {}),
+          _navItem(Icons.people_alt, "User Directory", () => _navigateTo('/users_list')),
+          _navItem(Icons.assignment_turned_in, "Verify Employers", () => _navigateTo('/verify_employers')),
+          _navItem(Icons.campaign, "Job Postings", () => _navigateTo('/job_postings')),
+          _navItem(Icons.description, "System Reports", () => _navigateTo('/reports_page')),
           const Divider(),
-          _navItem(Icons.settings, "Platform Settings", () {}),
+          _navItem(Icons.settings, "Platform Settings", () => _navigateTo('/settings')),
           const Spacer(),
-          _navItem(Icons.logout, "Sign Out", () => Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false), isLogout: true),
+          _navItem(Icons.logout, "Sign Out", () {
+            Session.logout();
+            Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
+          }, isLogout: true),
           const SizedBox(height: 20),
         ],
       ),
@@ -89,7 +107,7 @@ class _admindashboardState extends State<admindashboard> {
     );
   }
 
-  // ================= AI INSIGHT (LinkedIn Style) =================
+  // ================= DASHBOARD UI COMPONENTS =================
   Widget _aiInsightCard() {
     return Container(
       width: double.infinity,
@@ -120,7 +138,6 @@ class _admindashboardState extends State<admindashboard> {
     );
   }
 
-  // ================= RECENT ACTIVITY FEED =================
   Widget _recentActivity() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -133,7 +150,6 @@ class _admindashboardState extends State<admindashboard> {
           _activityTile("New Employer", "TechCorp Solutions registered.", "2 mins ago"),
           _activityTile("Report Filed", "Job #405 flagged for spam.", "45 mins ago"),
           _activityTile("System Update", "Database backup completed.", "3 hours ago"),
-          TextButton(onPressed: () {}, child: Text("View all activity", style: TextStyle(color: primaryOrange))),
         ],
       ),
     );
@@ -143,26 +159,14 @@ class _admindashboardState extends State<admindashboard> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(height: 8, width: 8, margin: const EdgeInsets.only(top: 6, right: 12), decoration: BoxDecoration(color: primaryOrange, shape: BoxShape.circle)),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-              ],
-            ),
-          ),
+          Container(height: 8, width: 8, decoration: BoxDecoration(color: primaryOrange, shape: BoxShape.circle)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold)), Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 12))])),
           Text(time, style: const TextStyle(color: Colors.grey, fontSize: 11)),
         ],
       ),
     );
-  }
-
-  void _navToUsers(String filter) {
-    Navigator.pushNamed(context, '/users', arguments: {'token': token, 'type': filter});
   }
 
   @override
@@ -170,69 +174,60 @@ class _admindashboardState extends State<admindashboard> {
     return Scaffold(
       backgroundColor: backgroundGray,
       appBar: AppBar(
-        centerTitle: false,
-        elevation: 0.5,
         backgroundColor: Colors.white,
         iconTheme: IconThemeData(color: primaryOrange),
-        title: Row(
-          children: [
-            const Text("Control Center", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800, fontSize: 20)),
-            const Spacer(),
-            IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none_rounded, color: Colors.black54)),
-          ],
-        ),
+        title: const Text("Control Center", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
       ),
       drawer: _buildSidebar(),
-      body: loading 
-        ? Center(child: CircularProgressIndicator(color: primaryOrange))
-        : SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _aiInsightCard(),
-                const SizedBox(height: 24),
-                const Text("Key Statistics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.5,
-                  children: [
-                    _statCard("Total Candidates", data?["candidates"] ?? 0, Icons.people, Colors.blue),
-                    _statCard("Verified Recruiters", data?["employers"] ?? 0, Icons.verified_user, Colors.indigo),
-                    _statCard("Live Job Posts", data?["active_jobs"] ?? 0, Icons.work_outline, Colors.teal),
-                    _statCard("Pending Reports", data?["reports"] ?? 0, Icons.warning_amber_rounded, Colors.red),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                _recentActivity(),
-              ],
+      body: loading
+          ? Center(child: CircularProgressIndicator(color: primaryOrange))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _aiInsightCard(),
+                  const SizedBox(height: 24),
+                  const Text("Key Statistics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.5,
+                    children: [
+                      _statCard("Total Candidates", data?["candidates"] ?? 0, Icons.people, Colors.blue, '/users_list'),
+                      _statCard("Verified Recruiters", data?["recruiters"] ?? 0, Icons.verified_user, Colors.indigo, '/verify_employers'),
+                      _statCard("Live Job Posts", data?["total_jobs"] ?? 0, Icons.work_outline, Colors.teal, '/job_postings'),
+                      _statCard("Pending Reports", data?["reports"] ?? 0, Icons.warning_amber_rounded, Colors.red, '/reports_page'),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  _recentActivity(),
+                ],
+              ),
             ),
-          ),
     );
   }
 
-  Widget _statCard(String label, dynamic value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white, 
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5, offset: const Offset(0, 2))]
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(height: 8),
-          Text(value.toString(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w600)),
-        ],
+  Widget _statCard(String label, dynamic value, IconData icon, Color color, String route) {
+    return InkWell(
+      onTap: () => _navigateTo(route),
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(height: 8),
+            Text(value.toString(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+          ],
+        ),
       ),
     );
   }
