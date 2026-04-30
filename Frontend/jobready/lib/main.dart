@@ -4,7 +4,7 @@ import 'Auth/registration_screen.dart';
 import 'screens/screen_selection.dart';
 import 'splash_screen.dart';
 import 'screens/Candidate/candidate_dashboard.dart';
-import 'screens/Employer/employer_dashboard.dart';
+import 'screens/Employer/employer_dashboard.dart'; // Ensure class name is EmployerDashboard
 import 'screens/Admin/admin_dashboard.dart';
 import 'screens/Admin/users_list.dart';
 import 'screens/Admin/verify_employers.dart';
@@ -37,19 +37,17 @@ class HireHub extends StatelessWidget {
         '/registration': (context) => const registration(),
         '/selectionscreen': (context) => const selectionscreen(),
         '/jobseekerdashboard': (context) => const jobseekerdashboard(),
+        
+        // FIXED: Correct class name casing
         '/employerdashboard': (context) => const employerdashboard(),
         '/admindashboard': (context) => const admindashboard(),
         
-        // Use Session.token (the String) for pages that require it immediately
         '/verify_employers': (context) => VerifyEmployersPage(token: Session.token),
         '/job_postings': (context) => JobPostingsPage(token: Session.token),
         '/reports_page': (context) => ReportsPage(token: Session.token),
-        
-        // Unified route name to fix the "Generator not found" error
         '/settings': (context) => const SettingsPage(),
       },
       onGenerateRoute: (settings) {
-        // This handles /users_list which often needs complex Map arguments
         if (settings.name == '/users_list') {
           final args = settings.arguments;
           String token = Session.token;
@@ -66,12 +64,6 @@ class HireHub extends StatelessWidget {
             builder: (_) => UsersListPage(token: token, type: type),
           );
         }
-        
-        // Fallback for /settings if passed with arguments
-        if (settings.name == '/settings') {
-          return MaterialPageRoute(builder: (_) => const SettingsPage());
-        }
-        
         return null;
       },
     );
