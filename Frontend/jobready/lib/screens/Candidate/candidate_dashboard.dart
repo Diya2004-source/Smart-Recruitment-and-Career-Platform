@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/candidate_api.dart';
+import 'package:jobready/services/candidate_api.dart';
 import 'job_feed.dart';
 
 class jobseekerdashboard extends StatefulWidget {
@@ -10,34 +10,35 @@ class jobseekerdashboard extends StatefulWidget {
 }
 
 class _jobseekerdashboardState extends State<jobseekerdashboard> {
-  final Color primaryOrange = const Color(0xFFFF8C00);
-  bool _isSidebarOpen = true;
-  String _candidateName = "Candidate";
   int _appliedCount = 0;
+  int _availableCount = 0;
+  List<dynamic> _recentJobs = [];
+  List<dynamic> _myApplications = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadDashboardData();
+    _fetchDashboardData();
   }
 
-  Future<void> _loadDashboardData() async {
-    setState(() => _isLoading = true);
+  Future<void> _fetchDashboardData() async {
     try {
       final results = await Future.wait([
         CandidateApi.getApplications(),
-        CandidateApi.getProfile(),
+        CandidateApi.getJobs(),
       ]);
 
       setState(() {
-        _appliedCount = (results[0] as List).length;
-        // Accessing name from the profile map
-        _candidateName = (results[1] as Map)['full_name'] ?? "Candidate";
+        _myApplications = results[0];
+        _appliedCount = _myApplications.length;
+        _availableCount = results[1].length;
+        _recentJobs = results[1].take(3).toList();
         _isLoading = false;
       });
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      debugPrint("Dashboard Refresh Error: $e");
+      setState(() => _isLoading = false);
     }
   }
 
@@ -45,85 +46,135 @@ class _jobseekerdashboardState extends State<jobseekerdashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: primaryOrange, // Orange BG
+        title: const Text("Candidate Dashboard", style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.orange,
+        iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white), // White Icons
-        leading: IconButton(
-          icon: Icon(_isSidebarOpen ? Icons.menu_open : Icons.menu),
-          onPressed: () => setState(() => _isSidebarOpen = !_isSidebarOpen),
-        ),
-        title: const Text(
-          "Candidate Panel", 
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold) // White Font
-        ),
       ),
-      body: Row(
-        children: [
-          if (_isSidebarOpen) _buildSidebar(),
-          Expanded(
-            child: _isLoading 
-              ? Center(child: CircularProgressIndicator(color: primaryOrange))
-              : _buildDashboardContent(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSidebar() {
-    return Container(
-      width: 250,
-      color: Colors.white,
-      child: Column(
-        children: [
-          const SizedBox(height: 20),
-          _sidebarItem(Icons.dashboard, "Dashboard", isSelected: true),
-          _sidebarItem(Icons.search, "Find Jobs", onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const JobFeed()));
-          }),
-          _sidebarItem(Icons.assignment, "My Applications"),
-          _sidebarItem(Icons.person, "Profile"),
-          const Spacer(),
-          _sidebarItem(Icons.logout, "Logout"),
-        ],
-      ),
-    );
-  }
-
-  Widget _sidebarItem(IconData icon, String title, {bool isSelected = false, VoidCallback? onTap}) {
-    return ListTile(
-      onTap: onTap,
-      leading: Icon(icon, color: isSelected ? primaryOrange : Colors.grey),
-      title: Text(title, style: TextStyle(color: isSelected ? primaryOrange : Colors.black87)),
-    );
-  }
-
-  Widget _buildDashboardContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Welcome, $_candidateName", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: primaryOrange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Row(
-              children: [
-                Column(
+      drawer: _buildSidebar(context),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.orange))
+          : RefreshIndicator(
+              onRefresh: _fetchDashboardData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Applications Sent", style: TextStyle(color: Colors.black54)),
-                    Text("$_appliedCount", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: primaryOrange)),
+                    const Text("Welcome, Candidate", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 20),
+                    _buildStatsCard(),
+                    const SizedBox(height: 25),
+                    const Text("My Applications & Messages", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    _buildAppliedJobsSection(),
+                    const SizedBox(height: 25),
+                    _buildJobHeader(),
+                    ..._recentJobs.map((job) => _buildJobCard(job)).toList(),
                   ],
                 ),
-              ],
+              ),
             ),
+    );
+  }
+
+  Widget _buildAppliedJobsSection() {
+    if (_myApplications.isEmpty) return const Text("No applications found yet.");
+    return Column(
+      children: _myApplications.map((app) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: ExpansionTile(
+          leading: const Icon(Icons.business_center, color: Colors.orange),
+          title: Text(app['job_title'], style: const TextStyle(fontWeight: FontWeight.bold)),
+          subtitle: Text("Status: ${app['status']}"),
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Employer Message:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8)),
+                    child: Text(app['employer_message'] ?? "No messages from the employer yet. Please check back later."),
+                  ),
+                ],
+              ),
+            )
+          ],
+        ),
+      )).toList(),
+    );
+  }
+
+  Widget _buildStatsCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Colors.orange, Colors.orangeAccent]),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildStatColumn(_appliedCount.toString(), "Applied"),
+          Container(width: 1, height: 40, color: Colors.white24),
+          _buildStatColumn(_availableCount.toString(), "Jobs Open"),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatColumn(String count, String label) {
+    return Column(
+      children: [
+        Text(count, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
+        Text(label, style: const TextStyle(color: Colors.white70)),
+      ],
+    );
+  }
+
+  Widget _buildJobHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Text("Latest Openings", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        TextButton(
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JobFeed())),
+          child: const Text("View All", style: TextStyle(color: Colors.orange)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildJobCard(dynamic job) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        title: Text(job['title'] ?? 'Job Title', style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text("${job['company_name']} • ${job['location']}"),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+      ),
+    );
+  }
+
+  Widget _buildSidebar(BuildContext context) {
+    return Drawer(
+      child: Column(
+        children: [
+          const UserAccountsDrawerHeader(
+            decoration: BoxDecoration(color: Colors.orange),
+            currentAccountPicture: CircleAvatar(backgroundColor: Colors.white, child: Icon(Icons.person, size: 40, color: Colors.orange)),
+            accountName: Text("Candidate Name"),
+            accountEmail: Text("candidate@example.com"),
           ),
+          ListTile(leading: const Icon(Icons.dashboard, color: Colors.orange), title: const Text("Dashboard"), onTap: () => Navigator.pop(context)),
+          ListTile(leading: const Icon(Icons.logout, color: Colors.red), title: const Text("Logout"), onTap: () => Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false)),
         ],
       ),
     );

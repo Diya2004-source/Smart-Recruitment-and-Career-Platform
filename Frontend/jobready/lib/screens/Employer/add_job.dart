@@ -10,122 +10,193 @@ class AddJob extends StatefulWidget {
 
 class _AddJobState extends State<AddJob> {
   final _formKey = GlobalKey<FormState>();
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descController = TextEditingController();
+  final TextEditingController _skillsController = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
+  
+  final Color primaryOrange = const Color(0xFFFF8C00);
+  bool _isSubmitting = false;
 
-  final title = TextEditingController();
-  final location = TextEditingController();
-  final skills = TextEditingController();
-  final desc = TextEditingController();
-
-  bool loading = false;
-
-  final Color orange = const Color(0xFFFF8C00);
-
-  Future<void> submit() async {
+  Future<void> _submitJob() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => loading = true);
-
+    setState(() => _isSubmitting = true);
     try {
-      final skillList = skills.text
-          .split(",")
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-
       await EmployerApi.createJob({
-        "title": title.text.trim(),
-        "description": desc.text.trim(),
-        "required_skills": skillList,
-        "location": location.text.trim(),
-        "is_active": true,
+        "title": _titleController.text.trim(),
+        "description": _descController.text.trim(),
+        "required_skills": _skillsController.text.trim(), 
+        "location": _locationController.text.trim(),
       });
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Job posted successfully")),
-      );
-
-      Navigator.pop(context, true);
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to create job: $e")),
-      );
-    } finally {
+      
       if (mounted) {
-        setState(() => loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Job Posted Successfully!"), 
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.pop(context); 
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error: $e"), 
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  Widget input(String label, TextEditingController c, {int maxLines = 1}) {
-    return TextFormField(
-      controller: c,
-      maxLines: maxLines,
-      validator: (v) =>
-          v == null || v.trim().isEmpty ? "$label required" : null,
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+  // Helper to build consistent premium text fields
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    String? hint,
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: controller,
+            maxLines: maxLines,
+            validator: validator,
+            decoration: InputDecoration(
+              hintText: hint,
+              prefixIcon: Icon(icon, color: primaryOrange, size: 20),
+              filled: true,
+              fillColor: Colors.grey[50],
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[200]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: primaryOrange, width: 1.5),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.redAccent),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   @override
-  void dispose() {
-    title.dispose();
-    location.dispose();
-    skills.dispose();
-    desc.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Post Job"),
-        backgroundColor: orange,
+        title: const Text("Post New Job", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        backgroundColor: primaryOrange,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              input("Job Title", title),
-              const SizedBox(height: 10),
-              input("Location", location),
-              const SizedBox(height: 10),
-              input("Skills (comma separated)", skills),
-              const SizedBox(height: 10),
-              input("Description", desc, maxLines: 4),
-
-              const SizedBox(height: 20),
-
-              ElevatedButton(
-                onPressed: loading ? null : submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: orange,
-                  minimumSize: const Size(double.infinity, 50),
+      body: _isSubmitting 
+        ? Center(child: CircularProgressIndicator(color: primaryOrange))
+        : SingleChildScrollView(
+            child: Column(
+              children: [
+                // Header section
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: primaryOrange,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(30),
+                      bottomRight: Radius.circular(30),
+                    ),
+                  ),
                 ),
-                child: loading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Post Job"),
-              ),
-            ],
+                
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildTextField(
+                          controller: _titleController,
+                          label: "Job Title",
+                          icon: Icons.work_outline,
+                          hint: "e.g. Senior Flutter Developer",
+                          validator: (v) => v!.isEmpty ? "Job title is required" : null,
+                        ),
+                        _buildTextField(
+                          controller: _locationController,
+                          label: "Location",
+                          icon: Icons.location_on_outlined,
+                          hint: "e.g. Remote or Rajkot, Gujarat",
+                          validator: (v) => v!.isEmpty ? "Location is required" : null,
+                        ),
+                        _buildTextField(
+                          controller: _skillsController,
+                          label: "Required Skills",
+                          icon: Icons.bolt_outlined,
+                          hint: "e.g. Python, Django, Flutter",
+                          validator: (v) => v!.isEmpty ? "At least one skill is required" : null,
+                        ),
+                        _buildTextField(
+                          controller: _descController,
+                          label: "Job Description",
+                          icon: Icons.description_outlined,
+                          hint: "Describe responsibilities and requirements...",
+                          maxLines: 4,
+                          validator: (v) => v!.length < 10 ? "Description too short" : null,
+                        ),
+                        
+                        const SizedBox(height: 10),
+                        
+                        ElevatedButton(
+                          onPressed: _submitJob,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryOrange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 2,
+                          ),
+                          child: const Text(
+                            "Publish Job Opening",
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
     );
   }
 }
